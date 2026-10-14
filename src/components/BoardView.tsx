@@ -38,6 +38,7 @@ import { ManagerAssignmentModal } from './ManagerAssignmentModal';
 import { MonthlyReportModal } from './MonthlyReportModal';
 import { api } from '../api';
 import { getTaskUnits } from '../lib/quantity';
+import { getColumnManagers, getManagerBadgeLabel } from '../lib/managers';
 
 interface BoardViewProps {
   board: BoardData | null;
@@ -1181,31 +1182,37 @@ export const BoardView: React.FC<BoardViewProps> = ({
                             </button>
                           )}
                         </div>
-                        {column.managerName ? (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                              <ShieldCheck className="w-2.5 h-2.5 text-[#2E2BE6]" />
-                              <span>Mgr: {column.managerName.split(' ')[0]}</span>
-                            </span>
-                            {isAdmin && (
+                        {(() => {
+                          const columnManagers = getColumnManagers(column);
+                          return columnManagers.length > 0 ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span
+                                title={columnManagers.length > 1 ? columnManagers.join(', ') : undefined}
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100"
+                              >
+                                <ShieldCheck className="w-2.5 h-2.5 text-[#2E2BE6]" />
+                                <span>Mgr: {getManagerBadgeLabel(columnManagers)}</span>
+                              </span>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => setIsAssignModalOpen(true)}
+                                  className="text-[9px] text-slate-400 hover:text-[#2E2BE6] underline"
+                                >
+                                  change
+                                </button>
+                              )}
+                            </div>
+                          ) : isAdmin ? (
+                            <div className="flex items-center gap-1 mt-0.5">
                               <button
                                 onClick={() => setIsAssignModalOpen(true)}
-                                className="text-[9px] text-slate-400 hover:text-[#2E2BE6] underline"
+                                className="text-[9px] font-semibold text-slate-400 hover:text-[#2E2BE6] transition-colors flex items-center gap-0.5"
                               >
-                                change
+                                <span>+ Assign manager</span>
                               </button>
-                            )}
-                          </div>
-                        ) : isAdmin ? (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <button
-                              onClick={() => setIsAssignModalOpen(true)}
-                              className="text-[9px] font-semibold text-slate-400 hover:text-[#2E2BE6] transition-colors flex items-center gap-0.5"
-                            >
-                              <span>+ Assign manager</span>
-                            </button>
-                          </div>
-                        ) : null}
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     )}
                   </div>
