@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User accounts and roles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "manager", "employee"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "boardMeta": {
+      "title": "BoardMeta",
+      "description": "Board date metadata and notes",
+      "type": "object",
+      "properties": {
+        "boardDate": { "type": "string" },
+        "title": { "type": "string" },
+        "notes": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["boardDate"]
+    },
+    "boardColumn": {
+      "title": "BoardColumn",
+      "description": "Whiteboard columns assigned to team members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "boardDate": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "boardDate", "employeeName", "sortOrder"]
+    },
+    "boardTask": {
+      "title": "BoardTask",
+      "description": "Tasks extracted from whiteboard or added manually",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "columnId": { "type": "string" },
+        "boardDate": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "completed"] },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "columnId", "boardDate", "title", "status", "priority", "sortOrder"]
+    },
+    "taskComment": {
+      "title": "TaskComment",
+      "description": "Comments left on tasks by team members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "taskId": { "type": "string" },
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "taskId", "userId", "authorName", "text", "createdAt"]
+    },
+    "managerAssignment": {
+      "title": "ManagerAssignment",
+      "description": "Mapping between managers and supervised employees",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "managerEmail": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "managerEmail", "employeeName"]
+    },
+    "notification": {
+      "title": "Notification",
+      "description": "In-app notifications for task assignments and completions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["task_assigned", "task_completed"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "isRead": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "title", "message", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles and permissions"
+    },
+    "/boards/{boardDate}": {
+      "schema": "boardMeta",
+      "description": "Metadata for a board on a given date"
+    },
+    "/columns/{columnId}": {
+      "schema": "boardColumn",
+      "description": "Column definitions for boards"
+    },
+    "/tasks/{taskId}": {
+      "schema": "boardTask",
+      "description": "Tasks associated with columns and dates"
+    },
+    "/comments/{commentId}": {
+      "schema": "taskComment",
+      "description": "Comments on board tasks"
+    },
+    "/assignments/{assignmentId}": {
+      "schema": "managerAssignment",
+      "description": "Manager to employee assignments"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "notification",
+      "description": "Notifications for task events"
+    }
+  }
+}

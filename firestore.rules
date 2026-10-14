@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Core application collections
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+    match /boards/{boardDate} {
+      allow read, write: if true;
+    }
+    match /columns/{columnId} {
+      allow read, write: if true;
+    }
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+    match /comments/{commentId} {
+      allow read, write: if true;
+    }
+    match /assignments/{assignmentId} {
+      allow read, write: if true;
+    }
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
+    match /system/{docId} {
+      allow read, write: if true;
+    }
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

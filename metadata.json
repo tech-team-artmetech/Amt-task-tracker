@@ -1,0 +1,10 @@
+{
+  "name": "AMT Task Tracker",
+  "description": "Mirrors office whiteboard photos to live digital task columns using Gemini Vision with role-based access, editable review, and priority task ordering.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
