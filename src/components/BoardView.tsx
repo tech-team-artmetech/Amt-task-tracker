@@ -715,7 +715,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
   return (
     <div className="flex-1 w-full max-w-full min-w-0 px-3 py-3 sm:px-6 sm:py-6 lg:p-8 bg-[#F8FAFC] text-slate-900">
       {/* Editorial Hero Banner Inspired by ARTmeTech */}
-      <div className="max-w-7xl mx-auto mb-3 sm:mb-6 bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-8 shadow-xs relative overflow-hidden min-w-0">
+      <div className="w-full mb-3 sm:mb-6 bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-8 shadow-xs relative overflow-hidden min-w-0">
         {/* Geometric curve motif in background */}
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full border border-slate-100 pointer-events-none" />
         <div className="absolute -top-36 -right-36 w-96 h-96 rounded-full border border-slate-100 pointer-events-none" />
@@ -921,7 +921,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
       {/* Manager Specific Scope Notice */}
       {isManager && (
-        <div className="max-w-7xl mx-auto mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="w-full mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#2E2BE6] text-white flex items-center justify-center shrink-0 shadow-xs">
               <ShieldCheck className="w-5 h-5" />
@@ -947,7 +947,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
       )}
 
       {/* 15-Day Date Navigator & Daily Carry-Forward Statistics */}
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
         <DateSelector
           selectedDate={selectedDate}
           availableDates={board?.availableDates}
@@ -958,7 +958,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
       {/* Admin Add Person Modal/Input */}
       {isAddingColumn && (
-        <div className="max-w-7xl mx-auto mb-6 bg-white border border-indigo-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
+        <div className="w-full mb-6 bg-white border border-indigo-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
           <input
             id="input-new-column-name"
             type="text"
@@ -989,7 +989,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
       )}
 
       {/* Columns Container */}
-      <div className="max-w-7xl mx-auto flex items-start gap-3.5 sm:gap-6 overflow-x-auto pb-12 w-full min-w-0 snap-x sm:snap-none overscroll-x-contain">
+      <div className="flex items-start gap-3.5 sm:gap-6 overflow-x-auto pb-12 w-full min-w-0 snap-x sm:snap-none overscroll-x-contain">
         {visibleColumns.length === 0 ? (
           <div className="w-full bg-white border border-slate-200/90 rounded-2xl p-8 sm:p-12 text-center shadow-xs">
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-4 text-[#2E2BE6]">
