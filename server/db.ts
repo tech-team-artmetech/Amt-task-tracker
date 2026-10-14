@@ -634,13 +634,8 @@ async function seedAccounts(): Promise<void> {
     }
   }
 
-  console.log('\n======================================================');
-  console.log('📌 OFFICE WHITEBOARD MIRROR — CLOUD SQL SEEDED ACCOUNTS');
-  console.log('======================================================');
-  SEED_ACCOUNTS.forEach((acc) => {
-    console.log(`Role: ${acc.role.toUpperCase().padEnd(8)} | Email: ${acc.email.padEnd(26)} | Password: ${acc.password}`);
-  });
-  console.log('======================================================\n');
+  // Passwords are intentionally never written to logs.
+  console.log(`[Database] Seed accounts verified (${SEED_ACCOUNTS.length} accounts).`);
 
   await syncTeamColumns();
 }
@@ -738,68 +733,6 @@ export async function updateUserPushPreference(userId: string, enabled: boolean)
     .update(users)
     .set({ pushNotificationsEnabled: enabled ? 1 : 0 })
     .where(eq(users.id, userId));
-}
-
-export async function getOrCreateFirebaseUser(uid: string, email: string, name?: string): Promise<User> {
-  await ensureDatabaseReady();
-  const cleanEmail = (email || '').trim().toLowerCase();
-  // Check by UID
-  const byUid = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
-  if (byUid.length > 0) {
-    const r = byUid[0];
-    return {
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      role: r.role as Role,
-      active: Boolean(r.active),
-    };
-  }
-
-  // Check by Email
-  if (cleanEmail) {
-    const byEmail = await db
-      .select()
-      .from(users)
-      .where(sql`LOWER(${users.email}) = ${cleanEmail}`)
-      .limit(1);
-
-    if (byEmail.length > 0) {
-      const r = byEmail[0];
-      await db.update(users).set({ uid }).where(eq(users.id, r.id));
-      return {
-        id: r.id,
-        name: r.name,
-        email: r.email,
-        role: r.role as Role,
-        active: Boolean(r.active),
-      };
-    }
-  }
-
-  // Create new user
-  const newId = crypto.randomUUID();
-  const displayName = name || cleanEmail.split('@')[0] || 'Team Member';
-  const role: Role = cleanEmail.includes('admin') || cleanEmail.includes('sohamthakkar09') || cleanEmail.includes('apoorvgoyal') ? 'admin' : 'employee';
-  const now = new Date().toISOString();
-
-  await db.insert(users).values({
-    id: newId,
-    uid,
-    name: displayName,
-    email: cleanEmail || `${uid}@firebase.user`,
-    role,
-    active: 1,
-    createdAt: now,
-  });
-
-  return {
-    id: newId,
-    name: displayName,
-    email: cleanEmail,
-    role,
-    active: true,
-  };
 }
 
 export async function validateUserLogin(
@@ -921,19 +854,8 @@ export async function validateUserLogin(
     isPasswordValid = false;
   }
 
-  if (!isPasswordValid) {
-    // Check if entered password matches the account's seed password from credentials sheet
-    const seedMatch = SEED_ACCOUNTS.find(
-      (a) =>
-        a.email.toLowerCase() === found.email.toLowerCase() &&
-        (a.password === cleanPass || a.password === plainPassword)
-    );
-    if (seedMatch) {
-      isPasswordValid = true;
-      await updateUserPassword(found.id, cleanPass);
-    }
-  }
-
+  // Note: the original seed password is NOT accepted as a fallback. Once an admin changes a
+  // password, only the stored (hashed) password works.
   if (!isPasswordValid) {
     return {
       user: null,

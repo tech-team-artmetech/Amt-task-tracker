@@ -1,4 +1,4 @@
-import { User, BoardData, BoardColumn, SampleWhiteboard, SeedUser, Role, TaskComment, ManagerOption, ManagerAssignment } from './types';
+import { User, BoardData, BoardColumn, SampleWhiteboard, Role, TaskComment, ManagerOption, ManagerAssignment } from './types';
 
 const TOKEN_KEY = 'whiteboard_auth_token';
 
@@ -95,30 +95,8 @@ export const api = {
     return res;
   },
 
-  async reAuthenticateAdmin(): Promise<{ token: string; user: User }> {
-    const res = await request<{ token: string; user: User }>('/api/auth/quick-switch', {
-      method: 'POST',
-      body: JSON.stringify({ role: 'admin' }),
-    });
-    setToken(res.token);
-    return res;
-  },
-
   async getMe(): Promise<{ user: User }> {
     return request<{ user: User }>('/api/auth/me');
-  },
-
-  async getSeedUsers(): Promise<{ seedUsers: SeedUser[] }> {
-    return request<{ seedUsers: SeedUser[] }>('/api/auth/seed-users');
-  },
-
-  async quickSwitch(role: Role): Promise<{ token: string; user: User }> {
-    const res = await request<{ token: string; user: User }>('/api/auth/quick-switch', {
-      method: 'POST',
-      body: JSON.stringify({ role }),
-    });
-    setToken(res.token);
-    return res;
   },
 
   logout(): void {
@@ -129,13 +107,6 @@ export const api = {
   async getBoard(date?: string): Promise<BoardData> {
     const url = date ? `/api/board?date=${encodeURIComponent(date)}` : '/api/board';
     return request<BoardData>(url);
-  },
-
-  async seed15Days(date?: string): Promise<{ success: boolean; board: BoardData }> {
-    return request<{ success: boolean; board: BoardData }>('/api/board/seed-15-days', {
-      method: 'POST',
-      body: JSON.stringify({ date }),
-    });
   },
 
   async extractBoard(

@@ -1,23 +1,10 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
-import { createServer as createViteServer } from 'vite';
-import { markFirestoreQuotaExceeded } from './src/db/firestore-sync.ts';
 
-// Catch background stream / quota rejections gracefully
+// Keep the process alive on stray background rejections, but make them visible.
 process.on('unhandledRejection', (reason: any) => {
-  const msg = reason?.message || String(reason || '');
-  if (
-    msg.includes('RESOURCE_EXHAUSTED') ||
-    msg.includes('resource-exhausted') ||
-    msg.includes('Quota exceeded') ||
-    msg.includes('quota metric') ||
-    msg.includes('quota limit')
-  ) {
-    markFirestoreQuotaExceeded(msg);
-    return;
-  }
   console.warn('[Server] Unhandled Rejection:', reason);
 });
 
@@ -35,7 +22,6 @@ import {
   deleteTaskComment,
   toggleTaskCompleted,
   adminApproveTask,
-  seed15DaysMockData,
   getManagers,
   getManagerAssignments,
   assignEmployeeToManager,
@@ -51,12 +37,13 @@ import {
   getAllRoles,
   createAppRole,
   deleteAppRole,
-  SEED_ACCOUNTS,
 } from './server/db.ts';
+import { flushDatabaseSync } from './src/db/index.ts';
 import {
   generateToken,
   authMiddleware,
   requireRole,
+  assertAuthConfigured,
   type AuthenticatedRequest,
 } from './server/auth.ts';
 import type { User } from './server/types.ts';
@@ -79,9 +66,15 @@ dotenv.config();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 async function startServer() {
+  // Refuse to start in production without a real JWT secret.
+  assertAuthConfigured();
+
   const app = express();
 
-  // Health check endpoint for Cloud Run startup / liveness probes
+  // Behind a reverse proxy (Passenger / nginx) so req.ip and protocol are correct.
+  app.set('trust proxy', 1);
+
+  // Health check endpoint for uptime monitors / liveness probes
   app.get('/_healthz', (_req, res) => {
     res.status(200).send('OK');
   });
@@ -92,21 +85,47 @@ async function startServer() {
 
   // ===================== AUTH ROUTES =====================
 
+  // Basic brute-force protection: at most 10 failed logins per 15 minutes per IP + login id.
+  const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+  const LOGIN_MAX_FAILURES = 10;
+  const loginFailures = new Map<string, { count: number; resetAt: number }>();
+  const loginKey = (req: express.Request) =>
+    `${req.ip}|${String(req.body?.email || req.body?.identifier || '').trim().toLowerCase()}`;
+
   // POST /api/auth/login
   app.post('/api/auth/login', async (req, res) => {
+    const key = loginKey(req);
+    const now = Date.now();
+    const entry = loginFailures.get(key);
+    if (entry && entry.resetAt > now && entry.count >= LOGIN_MAX_FAILURES) {
+      res.status(429).json({ error: 'Too many failed attempts. Please try again in 15 minutes.' });
+      return;
+    }
+    if (entry && entry.resetAt <= now) loginFailures.delete(key);
+    if (loginFailures.size > 5000) loginFailures.clear();
+
+    const recordFailure = () => {
+      const cur = loginFailures.get(key);
+      if (cur && cur.resetAt > Date.now()) cur.count += 1;
+      else loginFailures.set(key, { count: 1, resetAt: Date.now() + LOGIN_WINDOW_MS });
+    };
+
     try {
       const email = req.body.email || req.body.identifier;
       const { password } = req.body;
       const { user, error } = await validateUserLogin(email, password);
       if (!user || error) {
+        recordFailure();
         res.status(401).json({ error: 'Incorrect login Id or password' });
         return;
       }
 
+      loginFailures.delete(key);
       const token = generateToken(user);
       res.json({ token, user });
     } catch (err: any) {
       console.error('[Auth Error during login]:', err?.message || err);
+      recordFailure();
       res.status(401).json({ error: 'Incorrect login Id or password' });
     }
   });
@@ -114,41 +133,6 @@ async function startServer() {
   // GET /api/auth/me
   app.get('/api/auth/me', authMiddleware, (req: AuthenticatedRequest, res) => {
     res.json({ user: req.user });
-  });
-
-  // GET /api/auth/seed-users (for easy demo testing)
-  app.get('/api/auth/seed-users', (_req, res) => {
-    const list = SEED_ACCOUNTS.map((acc) => ({
-      name: acc.name,
-      email: acc.email,
-      role: acc.role,
-      password: acc.password,
-    }));
-    res.json({ seedUsers: list });
-  });
-
-  // POST /api/auth/quick-switch (instant switch between seed roles for UI testing)
-  app.post('/api/auth/quick-switch', async (req, res) => {
-    const { role } = req.body;
-    const target = SEED_ACCOUNTS.find((a) => a.role === role);
-    if (!target) {
-      res.status(400).json({ error: 'Unknown seed role' });
-      return;
-    }
-    const user = await getUserByEmail(target.email);
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-    const safeUser = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      active: user.active,
-    };
-    const token = generateToken(safeUser);
-    res.json({ token, user: safeUser });
   });
 
   // ===================== USER MANAGEMENT ROUTES (ADMIN ONLY) =====================
@@ -384,24 +368,6 @@ async function startServer() {
     }
   });
 
-  // POST /api/board/seed-15-days: Seed or reset mock data with 15-day history (Admin, Manager, Employee)
-  app.post(
-    '/api/board/seed-15-days',
-    authMiddleware,
-    requireRole(['admin', 'manager', 'employee']),
-    async (req: AuthenticatedRequest, res) => {
-      try {
-        const date = (req.body && req.body.date) || (req.query && req.query.date as string) || undefined;
-        await seed15DaysMockData(true);
-        const board = await getBoard(date);
-        res.json({ success: true, board });
-      } catch (err: any) {
-        console.error('[Seed 15 Days Error]', err);
-        res.status(500).json({ error: 'Failed to seed 15 days data.' });
-      }
-    }
-  );
-
   // POST /api/board/extract: Send photo to Gemini Vision (Admin only)
   app.post(
     '/api/board/extract',
@@ -594,17 +560,12 @@ async function startServer() {
   app.patch(
     '/api/tasks/:taskId/approve',
     authMiddleware,
+    requireRole(['admin']),
     async (req: AuthenticatedRequest, res) => {
       try {
         const { taskId } = req.params;
         const { approved = true, date } = req.body || {};
-        const approvingUser: User = req.user || {
-          id: 'c25d2c36-a81a-48a9-b221-9cadf5e101ca',
-          name: 'Admin Team',
-          email: 'tech.team@artmetech.in',
-          role: 'admin',
-          active: true,
-        };
+        const approvingUser: User = req.user!;
         const updatedBoard = await adminApproveTask(
           taskId,
           Boolean(approved),
@@ -793,6 +754,8 @@ async function startServer() {
   // ===================== FRONTEND SERVING =====================
 
   if (process.env.NODE_ENV !== 'production') {
+    // Loaded only in development so the production server doesn't need Vite installed.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
@@ -802,21 +765,45 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    // The built server lives in <app>/dist/server.cjs, next to the built frontend.
+    const bundledDir = typeof __dirname !== 'undefined' ? __dirname : '';
+    const distPath =
+      bundledDir && fs.existsSync(path.join(bundledDir, 'index.html'))
+        ? bundledDir
+        : path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
+      if (req.path.startsWith('/api/')) {
+        res.status(404).json({ error: 'Not found.' });
+        return;
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] Office Whiteboard Mirror listening on http://0.0.0.0:${PORT}`);
+  // Make sure the database is ready (and saved on disk) before taking traffic.
+  await initDatabase();
 
-    // Initialize Cloud SQL PostgreSQL database asynchronously without blocking startup probe
-    initDatabase().catch((err) => {
-      console.error('[Cloud SQL] Deferred database initialization error:', err);
-    });
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Server] Office Whiteboard Mirror listening on http://0.0.0.0:${PORT}`);
   });
+
+  // Final synchronous save when the host stops or restarts the app.
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[Server] ${signal} received, saving database and shutting down.`);
+    try {
+      flushDatabaseSync();
+    } catch (err) {
+      console.error('[Server] Final database save failed:', err);
+    }
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 startServer().catch((err) => {

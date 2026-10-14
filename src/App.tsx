@@ -43,7 +43,6 @@ export default function App() {
 
   // Selected date for board historical view and carry-forwards
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [isResetting15Days, setIsResetting15Days] = useState(false);
 
   // Error toast or notice
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' } | null>(
@@ -172,23 +171,6 @@ export default function App() {
   const handleSelectDate = async (newDate: string) => {
     setSelectedDate(newDate);
     await fetchBoard(false, newDate);
-  };
-
-  const handleReset15DaysMockData = async () => {
-    setIsResetting15Days(true);
-    try {
-      const res = await api.seed15Days(selectedDate || undefined);
-      setBoard(res.board);
-      if (res.board?.currentDate) {
-        setSelectedDate(res.board.currentDate);
-      }
-      showToast('15-day task history loaded with P1 priorities and carry-forward tasks!', 'success');
-    } catch (err: any) {
-      console.error('Failed to seed 15 days', err);
-      showToast(err.message || 'Failed to load 15-day history', 'error');
-    } finally {
-      setIsResetting15Days(false);
-    }
   };
 
   // Drag and drop reordering
@@ -491,8 +473,6 @@ export default function App() {
             user={currentUser}
             selectedDate={selectedDate || board?.currentDate || new Date().toISOString().slice(0, 10)}
             onSelectDate={handleSelectDate}
-            onReset15DaysMockData={handleReset15DaysMockData}
-            isResetting={isResetting15Days}
             onOpenUpload={() => setIsUploadOpen(true)}
             onReorder={handleReorder}
             onAdminEdit={handleAdminEdit}
@@ -524,9 +504,11 @@ export default function App() {
           defaultDate={selectedDate || (board?.selectedDate ? board.selectedDate : undefined)}
           availableDates={board?.availableDates}
           onExtractionSuccess={handleExtractionSuccess}
-          onAdminReAuthenticated={(user) => {
-            setCurrentUser(user);
-            showToast('Admin session refreshed successfully!', 'success');
+          onSessionExpired={() => {
+            api.logout();
+            setCurrentUser(null);
+            setPendingExtraction(null);
+            showToast('Your session expired. Please sign in again.', 'error');
           }}
         />
       )}

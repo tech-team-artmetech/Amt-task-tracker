@@ -3,7 +3,6 @@ import path from 'path';
 import initSqlJs from 'sql.js';
 import { drizzle } from 'drizzle-orm/sql-js';
 import * as schema from './schema.ts';
-import { restoreDatabaseFromFirestore, scheduleFirestoreSave } from './firestore-sync.ts';
 
 declare global {
   var _sqliteDbInstance: any;
@@ -11,22 +10,60 @@ declare global {
   var _dbInitPromise: Promise<any> | undefined;
 }
 
-const dbFilePath = path.resolve(process.cwd(), 'data', 'whiteboard.sqlite');
+// The database lives in a single SQLite file on the host's persistent disk.
+// Set DATA_DIR to put it outside the web root (recommended on shared hosting).
+const dataDir = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
+const dbFilePath = path.join(dataDir, 'whiteboard.sqlite');
 
-export function saveDatabase(immediate = false): void {
+let lastBackupDay = '';
+
+function ensureDataDir(): void {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+}
+
+// Writes via a temp file + rename so a crash mid-write can never leave a truncated database.
+function writeDatabaseFile(data: Uint8Array): void {
+  ensureDataDir();
+  const tmpPath = `${dbFilePath}.tmp`;
+  fs.writeFileSync(tmpPath, Buffer.from(data));
+  fs.renameSync(tmpPath, dbFilePath);
+}
+
+// Keeps one dated copy per day and prunes to the newest 14, as a cheap safety net.
+function rotateDailyBackup(): void {
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    if (day === lastBackupDay || !fs.existsSync(dbFilePath)) return;
+    const backupDir = path.join(dataDir, 'backups');
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    fs.copyFileSync(dbFilePath, path.join(backupDir, `whiteboard-${day}.sqlite`));
+    lastBackupDay = day;
+    const files = fs.readdirSync(backupDir).filter((f) => f.startsWith('whiteboard-')).sort();
+    for (const old of files.slice(0, Math.max(0, files.length - 14))) {
+      fs.unlinkSync(path.join(backupDir, old));
+    }
+  } catch (err) {
+    console.warn('[Database] Daily backup skipped:', err);
+  }
+}
+
+// `immediate` is kept for call-site compatibility: every save is written to disk synchronously.
+export function saveDatabase(_immediate = false): void {
   try {
     if (!global._sqliteDbInstance) return;
     const data = global._sqliteDbInstance.export();
-    const dir = path.dirname(dbFilePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(dbFilePath, Buffer.from(data));
-    // Persist to Google Cloud Firestore so data survives republishes & container restarts
-    scheduleFirestoreSave(data, immediate);
+    writeDatabaseFile(data);
+    rotateDailyBackup();
   } catch (err) {
     console.error('[Database] Error persisting SQLite database to disk:', err);
   }
+}
+
+// Final flush used on shutdown signals.
+export function flushDatabaseSync(): void {
+  saveDatabase(true);
 }
 
 export async function ensureDbReady(): Promise<any> {
@@ -42,40 +79,16 @@ export async function ensureDbReady(): Promise<any> {
       const SQL = await initSqlJs();
       let sqliteDb: any;
 
-      // 1. Try to restore latest persistent snapshot from Firestore (survives republishes)
-      const cloudBuffer = await restoreDatabaseFromFirestore();
-
-      if (cloudBuffer && cloudBuffer.length > 0) {
-        try {
-          const dir = path.dirname(dbFilePath);
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-          }
-          fs.writeFileSync(dbFilePath, cloudBuffer);
-          sqliteDb = new SQL.Database(cloudBuffer);
-          console.log(`[Database] Restored persistent database from Firestore (${cloudBuffer.length} bytes).`);
-        } catch (err) {
-          console.warn('[Database] Failed to initialize SQLite from Firestore buffer, falling back to local file:', err);
-        }
-      }
-
-      // 2. If not from Firestore, try reading local file
-      if (!sqliteDb && fs.existsSync(dbFilePath)) {
-        try {
-          const fileBuffer = fs.readFileSync(dbFilePath);
-          sqliteDb = new SQL.Database(fileBuffer);
-          console.log(`[Database] Loaded existing SQLite database from ${dbFilePath}`);
-        } catch (err) {
-          console.warn('[Database] Could not read existing sqlite file, creating fresh:', err);
-          sqliteDb = new SQL.Database();
-        }
-      } else if (!sqliteDb) {
-        const dir = path.dirname(dbFilePath);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
+      if (fs.existsSync(dbFilePath)) {
+        // Never fall back to an empty database if an existing file can't be read:
+        // that would silently start fresh and overwrite real data on the next save.
+        const fileBuffer = fs.readFileSync(dbFilePath);
+        sqliteDb = new SQL.Database(fileBuffer);
+        console.log(`[Database] Loaded existing SQLite database from ${dbFilePath} (${fileBuffer.length} bytes)`);
+      } else {
+        ensureDataDir();
         sqliteDb = new SQL.Database();
-        console.log('[Database] Created fresh SQLite database.');
+        console.log(`[Database] Created fresh SQLite database at ${dbFilePath}`);
       }
 
       // Check for migrations (e.g. uid column in users table)
@@ -85,8 +98,7 @@ export async function ensureDbReady(): Promise<any> {
           const cols = info[0].values.map((v: any[]) => v[1]);
           if (!cols.includes('uid')) {
             sqliteDb.run('ALTER TABLE users ADD COLUMN uid TEXT;');
-            const data = sqliteDb.export();
-            fs.writeFileSync(dbFilePath, Buffer.from(data));
+            writeDatabaseFile(sqliteDb.export());
             console.log('[Database] Added missing uid column to users table.');
           }
         }

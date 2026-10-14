@@ -18,8 +18,6 @@ interface DateSelectorProps {
   dailyStats?: DailyStats;
   userRole?: string;
   onSelectDate: (date: string) => void;
-  onReset15DaysMockData?: () => Promise<void>;
-  isResetting?: boolean;
 }
 
 export const DateSelector: React.FC<DateSelectorProps> = ({

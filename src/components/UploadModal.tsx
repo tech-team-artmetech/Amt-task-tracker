@@ -33,7 +33,7 @@ interface UploadModalProps {
     targetDate: string,
     autoMatchedCount?: number
   ) => void;
-  onAdminReAuthenticated?: (user: User) => void;
+  onSessionExpired?: () => void;
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({
@@ -42,7 +42,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   defaultDate,
   availableDates = [],
   onExtractionSuccess,
-  onAdminReAuthenticated,
+  onSessionExpired,
 }) => {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [targetDate, setTargetDate] = useState<string>(defaultDate || todayStr);
@@ -62,7 +62,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthError, setIsAuthError] = useState(false);
-  const [isReauthenticating, setIsReauthenticating] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -215,23 +214,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     }
   };
 
-  const handleReAuthenticate = async () => {
-    try {
-      setIsReauthenticating(true);
-      const res = await api.reAuthenticateAdmin();
-      if (onAdminReAuthenticated) {
-        onAdminReAuthenticated(res.user);
-      }
-      setErrorMessage(null);
-      setIsAuthError(false);
-      // Auto-retry processing with fresh token
-      await handleProcessImage();
-    } catch (err: any) {
-      setErrorMessage('Could not re-authenticate as Admin. Please log in again.');
-      setIsAuthError(true);
-    } finally {
-      setIsReauthenticating(false);
-    }
+  // The session has expired: send the admin back to the normal login screen.
+  const handleReAuthenticate = () => {
+    setErrorMessage(null);
+    setIsAuthError(false);
+    onClose();
+    onSessionExpired?.();
   };
 
   if (!isOpen) return null;
@@ -559,20 +547,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <button
                     type="button"
                     onClick={handleReAuthenticate}
-                    disabled={isReauthenticating || isProcessing}
+                    disabled={isProcessing}
                     className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                   >
-                    {isReauthenticating ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Refreshing Admin Session...</span>
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="w-3.5 h-3.5" />
-                        <span>Re-authenticate as Admin & Retry</span>
-                      </>
-                    )}
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Sign in again</span>
                   </button>
                 </div>
               )}

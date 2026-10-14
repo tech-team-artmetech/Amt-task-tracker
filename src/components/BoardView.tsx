@@ -43,8 +43,6 @@ interface BoardViewProps {
   user: User;
   selectedDate: string;
   onSelectDate: (date: string) => void;
-  onReset15DaysMockData: () => Promise<void>;
-  isResetting?: boolean;
   onOpenUpload: () => void;
   onReorder: (columns: BoardColumn[], date?: string) => Promise<void>;
   onAdminEdit: (
@@ -95,8 +93,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
   user,
   selectedDate,
   onSelectDate,
-  onReset15DaysMockData,
-  isResetting = false,
   onOpenUpload,
   onReorder,
   onAdminEdit,
@@ -955,8 +951,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
           availableDates={board?.availableDates}
           dailyStats={board?.dailyStats}
           onSelectDate={onSelectDate}
-          onReset15DaysMockData={onReset15DaysMockData}
-          isResetting={isResetting}
         />
       </div>
 

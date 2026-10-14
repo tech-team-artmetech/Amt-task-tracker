@@ -1,17 +1,23 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { User, Role } from './types.ts';
-import { getUserById, getUserByEmail, getOrCreateFirebaseUser } from './db.ts';
-import { adminAuth } from '../src/lib/firebase-admin.ts';
+import { getUserById, getUserByEmail } from './db.ts';
 
-function getJwtSecrets(): string[] {
-  const secrets = [
-    process.env.JWT_SECRET,
-    'whiteboard_jwt_secret_change_in_production',
-    'secret-key123',
-  ].filter(Boolean) as string[];
+// Tokens are signed with JWT_SECRET only. There is deliberately no built-in fallback secret:
+// a publicly known default would let anyone forge a login for any account.
+function getJwtSecret(): string {
+  const secret = (process.env.JWT_SECRET || '').trim();
+  if (secret.length >= 16) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be set to a random string of at least 16 characters in production.');
+  }
+  console.warn('[Auth] JWT_SECRET is not set; using an insecure development-only secret.');
+  return 'dev-only-insecure-secret-do-not-use-in-production';
+}
 
-  return Array.from(new Set(secrets));
+// Fail fast at startup instead of on the first login attempt.
+export function assertAuthConfigured(): void {
+  getJwtSecret();
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -19,7 +25,6 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function generateToken(user: User): string {
-  const primarySecret = process.env.JWT_SECRET || 'whiteboard_jwt_secret_change_in_production';
   return jwt.sign(
     {
       id: user.id,
@@ -27,26 +32,21 @@ export function generateToken(user: User): string {
       email: user.email,
       role: user.role,
     },
-    primarySecret,
+    getJwtSecret(),
     { expiresIn: '7d' }
   );
 }
 
 export function verifyToken(token: string): { id: string; name: string; email: string; role: Role } | null {
   if (!token || typeof token !== 'string') return null;
-
-  const secrets = getJwtSecrets();
-  for (const secret of secrets) {
-    try {
-      const payload = jwt.verify(token, secret) as { id: string; name: string; email: string; role: Role };
-      if (payload && (payload.id || payload.email)) {
-        return payload;
-      }
-    } catch {
-      // Continue trying next known secret candidate
+  try {
+    const payload = jwt.verify(token, getJwtSecret()) as { id: string; name: string; email: string; role: Role };
+    if (payload && (payload.id || payload.email)) {
+      return payload;
     }
+  } catch {
+    // Invalid or expired token
   }
-
   return null;
 }
 
@@ -56,7 +56,11 @@ export async function authMiddleware(
   next: NextFunction
 ): Promise<void> {
   const authHeader = req.headers.authorization;
-  const queryToken = typeof req.query?.token === 'string' ? req.query.token.trim() : null;
+  // A token in the URL ends up in server logs, so it is accepted only for the
+  // notification stream (the browser's EventSource cannot send headers).
+  const allowQueryToken = req.path === '/api/notifications/stream';
+  const queryToken =
+    allowQueryToken && typeof req.query?.token === 'string' ? req.query.token.trim() : null;
 
   let token: string | null = null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -72,38 +76,21 @@ export async function authMiddleware(
 
   let user: User | null = null;
 
-  // 1. Check if token is a Firebase ID Token (Google OAuth / Firebase Sign-in)
-  try {
-    const decoded = await adminAuth.verifyIdToken(token);
-    if (decoded && (decoded.uid || decoded.email)) {
-      user = await getOrCreateFirebaseUser(
-        decoded.uid,
-        decoded.email || '',
-        decoded.name || (decoded as any).displayName
-      );
+  const payload = verifyToken(token);
+  if (payload) {
+    if (payload.id) {
+      user = await getUserById(payload.id);
     }
-  } catch {
-    // Not a Firebase ID token, proceed to check custom app JWT
-  }
-
-  // 2. Custom JWT verification (seed accounts, direct email/pass login)
-  if (!user) {
-    const payload = verifyToken(token);
-    if (payload) {
-      if (payload.id) {
-        user = await getUserById(payload.id);
-      }
-      if (!user && payload.email) {
-        const raw = await getUserByEmail(payload.email);
-        if (raw) {
-          user = {
-            id: raw.id,
-            name: raw.name,
-            email: raw.email,
-            role: raw.role,
-            active: raw.active,
-          };
-        }
+    if (!user && payload.email) {
+      const raw = await getUserByEmail(payload.email);
+      if (raw) {
+        user = {
+          id: raw.id,
+          name: raw.name,
+          email: raw.email,
+          role: raw.role,
+          active: raw.active,
+        };
       }
     }
   }
