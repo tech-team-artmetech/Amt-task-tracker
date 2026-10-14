@@ -10,8 +10,12 @@ function getGeminiClient(): GoogleGenAI {
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is not configured in environment or Secrets.');
     }
+    // Set GEMINI_USE_VERTEX=true when the key is an Agent Platform (Vertex AI) key, for example a
+    // key bound to a service account. Leave it unset for a normal Gemini API key.
+    const useVertex = (process.env.GEMINI_USE_VERTEX || '').toLowerCase() === 'true';
     aiClient = new GoogleGenAI({
       apiKey,
+      ...(useVertex ? { vertexai: true } : {}),
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
@@ -187,13 +191,22 @@ Respond ONLY with a valid JSON object matching this schema:
   };
 
   // Supported flash models in order of verified real-time availability and OCR capability
+  // GEMINI_MODELS (comma-separated) is tried first when set. A model that doesn't exist for the
+  // current API (404) is skipped automatically, so the list can safely contain extra names.
+  const modelOverride = (process.env.GEMINI_MODELS || '')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
   const modelsToTry = [
+    ...modelOverride,
     'gemini-3.8-flash',
     'gemini-3.5-flash',
     'gemini-3.1-flash-lite',
     'gemini-flash-latest',
     'gemini-3-flash-preview',
     'gemini-flash-lite-latest',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
   ];
 
   let rawText = '';
