@@ -24,3 +24,21 @@ export function extractTaskQuantity(text: string): { totalQuantity: number; hasE
 
   return { totalQuantity: 1, hasExplicitMultiplier: false };
 }
+
+/**
+ * How many units a task card is worth, and how many of them are finished.
+ * A card like "Chhedas x 2" counts as 2 units. The stored totalQuantity wins when it is set
+ * above 1; otherwise the multiplier in the task text is used (same rule the server uses).
+ */
+export function getTaskUnits(task: {
+  text?: string;
+  completed?: boolean;
+  totalQuantity?: number | null;
+  completedQuantity?: number | null;
+}): { total: number; done: number } {
+  const stored = Number(task.totalQuantity) || 0;
+  const total = stored > 1 ? Math.floor(stored) : extractTaskQuantity(task.text || '').totalQuantity;
+  if (task.completed) return { total, done: total };
+  const partial = Math.max(0, Math.floor(Number(task.completedQuantity) || 0));
+  return { total, done: Math.min(total, partial) };
+}

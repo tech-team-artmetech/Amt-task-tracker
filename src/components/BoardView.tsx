@@ -37,6 +37,7 @@ import { DateSelector } from './DateSelector';
 import { ManagerAssignmentModal } from './ManagerAssignmentModal';
 import { MonthlyReportModal } from './MonthlyReportModal';
 import { api } from '../api';
+import { getTaskUnits } from '../lib/quantity';
 
 interface BoardViewProps {
   board: BoardData | null;
@@ -1253,8 +1254,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
                     )}
 
                     {(() => {
-                      const completedCount = column.tasks.filter((t) => t.completed).length;
-                      const totalCount = column.tasks.length;
+                      // Count units, not cards: "Chhedas x 2" is two items of work.
+                      const unitCounts = column.tasks.map((t) => getTaskUnits(t));
+                      const completedCount = unitCounts.reduce((sum, u) => sum + u.done, 0);
+                      const totalCount = unitCounts.reduce((sum, u) => sum + u.total, 0);
                       return (
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full font-bold border transition-colors ${
@@ -1264,7 +1267,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-slate-100 text-slate-700 border-slate-200'
                           }`}
-                          title={`${completedCount} of ${totalCount} tasks finished`}
+                          title={`${completedCount} of ${totalCount} items finished`}
                         >
                           {completedCount > 0 ? `${completedCount}/${totalCount} done` : totalCount}
                         </span>
