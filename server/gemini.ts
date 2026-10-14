@@ -222,9 +222,13 @@ Respond ONLY with a valid JSON object matching this schema:
         // 35-second per-model timeout
         const generatePromise = ai.models.generateContent({
           model,
-          contents: {
-            parts: [imagePart, textPart],
-          },
+          // An explicit role is required by the Vertex endpoint and accepted by the Gemini API.
+          contents: [
+            {
+              role: 'user',
+              parts: [imagePart, textPart],
+            },
+          ],
           config: jsonConfig,
         });
 
