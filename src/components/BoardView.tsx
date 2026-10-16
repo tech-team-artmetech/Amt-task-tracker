@@ -1454,7 +1454,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                               </>
                             )}
 
-                            {isAdmin && (
+                            {(isAdmin || isManagerOwnColumn) && (
                               <div className="flex sm:hidden group-hover:flex items-center gap-1">
                                 <button
                                   onClick={(e) => {
@@ -1467,16 +1467,18 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                 >
                                   <Edit2 className="w-3 h-3" />
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAdminEdit({ type: 'delete_task', taskId: task.id }, selectedDate);
-                                  }}
-                                  title="Delete task"
-                                  className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onAdminEdit({ type: 'delete_task', taskId: task.id }, selectedDate);
+                                    }}
+                                    title="Delete task"
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
