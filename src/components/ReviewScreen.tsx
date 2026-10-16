@@ -99,12 +99,14 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
 
           const qtyInfo = extractTaskQuantity(text);
           const totalQty = (t as any).totalQuantity || qtyInfo.totalQuantity;
-          const completedQty = Number((t as any).completedQuantity || 0);
+          // Keep tasks Gemini read as crossed out / done on the board (all units done for quantity tasks)
+          const markedDone = Boolean(t && typeof t === 'object' && t.completed);
+          const completedQty = markedDone ? totalQty : Number((t as any).completedQuantity || 0);
 
           return {
             id: `task-${i}-${tIdx}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             text,
-            completed: totalQty > 1 ? completedQty >= totalQty : false,
+            completed: totalQty > 1 ? completedQty >= totalQty : markedDone,
             totalQuantity: totalQty,
             completedQuantity: completedQty,
           };
