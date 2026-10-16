@@ -27,11 +27,18 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
   userRole,
   onSelectDate,
 }) => {
-  const todayDate = availableDates[0]?.date || new Date().toISOString().slice(0, 10);
+  // The server labels the real current day "Today (...)"; future boards can sort ahead of it,
+  // so the first entry is only the newest date, not necessarily today.
+  const localToday = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  })();
+  const todayDate = availableDates.find((d) => d.label?.startsWith('Today'))?.date || localToday;
+  const newestDate = availableDates[0]?.date && availableDates[0].date > todayDate ? availableDates[0].date : todayDate;
   const isTodaySelected = selectedDate === todayDate;
   const isPastDate = Boolean(selectedDate && selectedDate < todayDate);
 
-  const canGoNewer = selectedDate < todayDate;
+  const canGoNewer = selectedDate < newestDate;
   const canGoOlder = true;
 
   const handlePrevDay = () => {
@@ -46,7 +53,7 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
     const dt = new Date(Date.UTC(y, m - 1, d));
     dt.setUTCDate(dt.getUTCDate() + 1);
     const nextStr = dt.toISOString().slice(0, 10);
-    if (nextStr <= todayDate) {
+    if (nextStr <= newestDate) {
       onSelectDate(nextStr);
     }
   };
@@ -100,7 +107,7 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
             <input
               id="input-date-picker"
               type="date"
-              max={todayDate}
+              max={newestDate}
               value={selectedDate}
               onChange={(e) => {
                 if (e.target.value) onSelectDate(e.target.value);
