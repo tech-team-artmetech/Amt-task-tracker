@@ -2381,6 +2381,18 @@ export async function adminEditBoard(
         }).catch((err) => console.error('[Notification error]', err));
       }
     } else if (action.type === 'edit_task' && action.taskId && action.text) {
+      // Managers may only edit tasks on their own column; admins can edit any task
+      if (requestingUser && requestingUser.role !== 'admin') {
+        const taskCol = await tx
+          .select({ employeeName: boardColumns.employeeName })
+          .from(boardTasks)
+          .innerJoin(boardColumns, eq(boardTasks.columnId, boardColumns.id))
+          .where(eq(boardTasks.id, action.taskId))
+          .limit(1);
+        if (!taskCol[0] || !isUserOwnColumn(taskCol[0].employeeName, requestingUser)) {
+          throw new Error('Managers can only edit tasks on their own column.');
+        }
+      }
       const parsedQty = extractTaskQuantity(action.text.trim());
       await tx
         .update(boardTasks)
