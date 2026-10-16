@@ -1,4 +1,4 @@
-import { User, BoardData, BoardColumn, SampleWhiteboard, Role, TaskComment, ManagerOption, ManagerAssignment } from './types';
+import { User, BoardData, BoardColumn, Role, TaskComment, ManagerOption, ManagerAssignment } from './types';
 
 const TOKEN_KEY = 'whiteboard_auth_token';
 
@@ -221,10 +221,6 @@ export const api = {
         body: JSON.stringify({ approved, date }),
       }
     );
-  },
-
-  async getSampleWhiteboards(): Promise<{ samples: SampleWhiteboard[] }> {
-    return request<{ samples: SampleWhiteboard[] }>('/api/sample-whiteboards');
   },
 
   // Manager Assignments (Admin Only)

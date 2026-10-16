@@ -125,13 +125,6 @@ export interface ReviewEmployee {
   tasks: ReviewTask[];
 }
 
-export interface SampleWhiteboard {
-  id: string;
-  title: string;
-  description: string;
-  dataUri: string;
-}
-
 export interface SeedUser {
   name: string;
   email: string;
