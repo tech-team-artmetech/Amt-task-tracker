@@ -246,13 +246,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <span>Upload File</span>
           </button>
 
+          {/* Camera capture is for phones and tablets; desktops upload a file instead */}
           <button
             id="tab-camera"
             onClick={() => {
               setActiveTab('camera');
               startCamera();
             }}
-            className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all flex lg:hidden items-center gap-1.5 ${
               activeTab === 'camera'
                 ? 'border-[#2E2BE6] text-[#2E2BE6]'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
