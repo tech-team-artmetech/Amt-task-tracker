@@ -1193,23 +1193,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                 <ShieldCheck className="w-2.5 h-2.5 text-[#2E2BE6]" />
                                 <span>Mgr: {getManagerBadgeLabel(columnManagers)}</span>
                               </span>
-                              {isAdmin && (
-                                <button
-                                  onClick={() => setIsAssignModalOpen(true)}
-                                  className="text-[9px] text-slate-400 hover:text-[#2E2BE6] underline"
-                                >
-                                  change
-                                </button>
-                              )}
-                            </div>
-                          ) : isAdmin ? (
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <button
-                                onClick={() => setIsAssignModalOpen(true)}
-                                className="text-[9px] font-semibold text-slate-400 hover:text-[#2E2BE6] transition-colors flex items-center gap-0.5"
-                              >
-                                <span>+ Assign manager</span>
-                              </button>
                             </div>
                           ) : null;
                         })()}
