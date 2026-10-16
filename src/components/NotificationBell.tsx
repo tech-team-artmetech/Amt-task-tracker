@@ -443,21 +443,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   return (
     <div className="relative inline-flex items-center gap-1.5" ref={panelRef}>
-      {/* Direct "Turn On Alerts" button in Navbar if not yet enabled */}
-      {!isPushActive && browserPermission !== 'denied' && (
-        <button
-          type="button"
-          id="btn-quick-turn-on-alerts"
-          onClick={handleEnablePush}
-          disabled={isSubmittingPush}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-[11px] font-bold rounded-full shadow-sm transition-all cursor-pointer hover:scale-105"
-          title="Enable notifications for task updates"
-        >
-          <Bell className="w-3 h-3 animate-bounce" />
-          <span>{isSubmittingPush ? 'Enabling...' : 'Turn On Alerts'}</span>
-        </button>
-      )}
-
       {/* Bell Trigger Button */}
       <button
         type="button"
