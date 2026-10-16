@@ -188,6 +188,7 @@ export function getDayLabel(dateStr: string): { label: string; dayOfWeek: string
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const todayStr = getRelativeDateString(0);
   const yesterdayStr = getRelativeDateString(1);
+  const tomorrowStr = getRelativeDateString(-1);
 
   const dayOfWeek = days[dt.getDay()];
   const monthName = months[dt.getMonth()];
@@ -198,6 +199,9 @@ export function getDayLabel(dateStr: string): { label: string; dayOfWeek: string
   }
   if (dateStr === yesterdayStr) {
     return { label: `Yesterday (${formatted})`, dayOfWeek };
+  }
+  if (dateStr === tomorrowStr) {
+    return { label: `Tomorrow (${formatted})`, dayOfWeek };
   }
   return { label: `${formatted} (${dayOfWeek})`, dayOfWeek };
 }
