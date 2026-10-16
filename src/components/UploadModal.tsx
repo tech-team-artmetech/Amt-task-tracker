@@ -7,7 +7,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Video,
-  FileImage,
   RefreshCw,
   HelpCircle,
   LogIn,
@@ -15,7 +14,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { api } from '../api';
-import { SampleWhiteboard, User } from '../types';
+import { User } from '../types';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -46,11 +45,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 }) => {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [targetDate, setTargetDate] = useState<string>(defaultDate || todayStr);
-  const [activeTab, setActiveTab] = useState<'upload' | 'camera' | 'samples'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'camera'>('upload');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState<string>('image/jpeg');
-  const [samples, setSamples] = useState<SampleWhiteboard[]>([]);
-  const [isLoadingSamples, setIsLoadingSamples] = useState(false);
 
   // Sync defaultDate if provided
   useEffect(() => {
@@ -81,25 +78,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Load sample whiteboards
-  useEffect(() => {
-    if (isOpen && activeTab === 'samples' && samples.length === 0) {
-      loadSamples();
-    }
-  }, [isOpen, activeTab]);
-
-  const loadSamples = async () => {
-    try {
-      setIsLoadingSamples(true);
-      const res = await api.getSampleWhiteboards();
-      setSamples(res.samples || []);
-    } catch (err) {
-      console.error('Failed to load sample whiteboards', err);
-    } finally {
-      setIsLoadingSamples(false);
-    }
-  };
 
   // Stop camera when closing or switching tabs
   const stopCamera = () => {
@@ -284,21 +262,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <span>Take Photo</span>
           </button>
 
-          <button
-            id="tab-sample-whiteboard"
-            onClick={() => {
-              setActiveTab('samples');
-              stopCamera();
-            }}
-            className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
-              activeTab === 'samples'
-                ? 'border-[#2E2BE6] text-[#2E2BE6]'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <FileImage className="w-3.5 h-3.5" />
-            <span>Try Sample Boards</span>
-          </button>
         </div>
 
         {/* Content Area */}
@@ -439,52 +402,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                       <span>Snap Tasklist Photo</span>
                     </button>
                   )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 3: Sample Whiteboards */}
-          {activeTab === 'samples' && (
-            <div className="flex flex-col gap-3">
-              <p className="text-xs text-slate-500">
-                Choose a realistic sample tasklist to test Gemini Vision extraction immediately:
-              </p>
-
-              {isLoadingSamples ? (
-                <div className="py-8 text-center text-xs text-slate-500">Loading sample boards...</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {samples.map((sample) => (
-                    <div
-                      key={sample.id}
-                      onClick={() => {
-                        setSelectedImage(sample.dataUri);
-                        setMimeType('image/svg+xml');
-                      }}
-                      className={`border rounded-xl p-3 cursor-pointer transition-all flex flex-col gap-2 ${
-                        selectedImage === sample.dataUri
-                          ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="h-28 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center p-1">
-                        <img
-                          src={sample.dataUri}
-                          alt={sample.title}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 leading-tight">
-                          {sample.title}
-                        </h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
-                          {sample.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>

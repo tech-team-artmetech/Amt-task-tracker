@@ -48,7 +48,6 @@ import {
 } from './server/auth.ts';
 import type { User } from './server/types.ts';
 import { extractBoardFromImage } from './server/gemini.ts';
-import { SAMPLE_WHITEBOARDS } from './server/sampleImages.ts';
 import {
   registerSSEClient,
   getUserNotifications,
@@ -579,11 +578,6 @@ async function startServer() {
       }
     }
   );
-
-  // GET /api/sample-whiteboards: Get test whiteboard photos for quick testing
-  app.get('/api/sample-whiteboards', authMiddleware, (_req: AuthenticatedRequest, res) => {
-    res.json({ samples: SAMPLE_WHITEBOARDS });
-  });
 
   // ===================== NOTIFICATION ROUTES =====================
 

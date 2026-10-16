@@ -1,6 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { GeminiExtractionResult } from './types.ts';
-import { SAMPLE_WHITEBOARDS } from './sampleImages.ts';
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -118,12 +117,6 @@ export async function extractBoardFromImage(
   if (!pureBase64 || pureBase64.length < 50) {
     throw new Error("Invalid image data provided. Please provide a valid photo.");
   }
-
-  // Check if this matches a known sample whiteboard
-  const matchingSample = SAMPLE_WHITEBOARDS.find((sample) => {
-    const samplePure = sample.dataUri.replace(/^data:[a-zA-Z0-9.+/-]+;base64,/, '');
-    return pureBase64 === samplePure;
-  });
 
   const candidateSection =
     candidateTeamNames.length > 0
@@ -292,16 +285,7 @@ Respond ONLY with a valid JSON object matching this schema:
     }
   }
 
-  // If Gemini failed on all models, check if we have matching sample data as graceful fallback
-  if ((!rawText || rawText.length <= 5) && matchingSample) {
-    console.info('[Gemini Vision] Using sample board pre-parsed data as fallback due to high API demand');
-    return {
-      employees: matchingSample.expectedData,
-      clarityScore: 'readable',
-    };
-  }
-
-  // If Gemini failed and no sample fallback was possible
+  // If Gemini failed on all models
   if (!rawText || rawText.length <= 5) {
     const errMsg = lastError?.message || '';
     if (
@@ -324,12 +308,6 @@ Respond ONLY with a valid JSON object matching this schema:
     parsed = JSON.parse(rawText);
   } catch (parseErr) {
     console.error('[Gemini] JSON Parse Error:', parseErr, 'Raw Text:', rawText);
-    if (matchingSample) {
-      return {
-        employees: matchingSample.expectedData,
-        clarityScore: 'readable',
-      };
-    }
     throw new Error("Couldn't read the board, try a clearer photo");
   }
 
@@ -485,13 +463,6 @@ Respond ONLY with a valid JSON object matching this schema:
   }
 
   // If no columns could be extracted
-  if (matchingSample) {
-    return {
-      employees: matchingSample.expectedData,
-      clarityScore: 'readable',
-    };
-  }
-
   if (parsed?.readabilityStatus === 'unreadable') {
     const reason = parsed.unreadableReason ? `: ${parsed.unreadableReason}` : '';
     throw new Error(`Couldn't read the board, try a clearer photo${reason}`);
