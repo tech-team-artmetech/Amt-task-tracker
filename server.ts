@@ -47,7 +47,7 @@ import {
   type AuthenticatedRequest,
 } from './server/auth.ts';
 import type { User } from './server/types.ts';
-import { extractBoardFromImage } from './server/gemini.ts';
+import { extractBoardFromImage, extractBoardFromText } from './server/gemini.ts';
 import {
   registerSSEClient,
   getUserNotifications,
@@ -387,6 +387,29 @@ async function startServer() {
         console.error('[Vision Extract Error]', err);
         const msg = err.message || "Couldn't read the board, try a clearer photo";
         res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  // POST /api/board/extract-text: Send a pasted task list to Gemini (Admin only)
+  app.post(
+    '/api/board/extract-text',
+    authMiddleware,
+    requireRole(['admin']),
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { text } = req.body || {};
+        if (typeof text !== 'string' || !text.trim()) {
+          res.status(400).json({ error: 'No task list text provided.' });
+          return;
+        }
+
+        const registeredNames = await getRegisteredTeamMemberNames();
+        const result = await extractBoardFromText(text, registeredNames);
+        res.json(result);
+      } catch (err: any) {
+        console.error('[Text Extract Error]', err);
+        res.status(400).json({ error: err.message || "Couldn't read the pasted tasks, check the text and try again" });
       }
     }
   );

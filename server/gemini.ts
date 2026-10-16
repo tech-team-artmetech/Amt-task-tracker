@@ -99,6 +99,26 @@ export function matchToRegisteredTeamMember(
   return { matchedName: cleanExtracted, confidence: 'none', distance: bestDist };
 }
 
+// What Gemini reads: a board photo, or the board's tasks pasted in as plain text.
+type BoardSource = { kind: 'image'; data: string; mimeType: string } | { kind: 'text'; text: string };
+
+// Longest pasted task list accepted, to keep the Gemini request small
+const MAX_PASTED_TEXT_LENGTH = 20000;
+
+export async function extractBoardFromText(
+  pastedText: string,
+  candidateTeamNames: string[] = []
+): Promise<GeminiExtractionResult> {
+  const text = (pastedText || '').trim();
+  if (!text) {
+    throw new Error('Paste the task list first.');
+  }
+  if (text.length > MAX_PASTED_TEXT_LENGTH) {
+    throw new Error(`The pasted text is too long (max ${MAX_PASTED_TEXT_LENGTH} characters).`);
+  }
+  return extractBoard({ kind: 'text', text }, candidateTeamNames);
+}
+
 export async function extractBoardFromImage(
   base64Data: string,
   mimeType: string = 'image/jpeg',
@@ -118,6 +138,15 @@ export async function extractBoardFromImage(
     throw new Error("Invalid image data provided. Please provide a valid photo.");
   }
 
+  return extractBoard({ kind: 'image', data: pureBase64, mimeType: resolvedMimeType }, candidateTeamNames);
+}
+
+async function extractBoard(source: BoardSource, candidateTeamNames: string[]): Promise<GeminiExtractionResult> {
+  const isText = source.kind === 'text';
+  const readFailure = isText
+    ? "Couldn't read the pasted tasks, check the text and try again"
+    : "Couldn't read the board, try a clearer photo";
+
   const candidateSection =
     candidateTeamNames.length > 0
       ? `\nREGISTERED OFFICE TEAM MEMBERS / CANDIDATE NAMES:
@@ -125,9 +154,21 @@ The office has the following known team members: [${candidateTeamNames.join(', '
 When handwriting is difficult or slightly messy, prefer matching the column headings to these registered team members if visually similar (for example, "Om" instead of "DM", "Pooja" instead of "poga", "Ujwal" instead of "Ujjwal", "Hardik", "Aamir", "Ashish", "Jay", "Pradeep", "Shrushti", "Soham", "Jinal", "Anjan", "Swara").`
       : '';
 
+  const textSourceSection = isText
+    ? `
+INPUT TYPE - PASTED TEXT, NOT A PHOTO:
+There is no image. The admin has typed or pasted the whiteboard's contents as plain text (shown at the end, after "PASTED TASK LIST"). Read it exactly like the board photo described below, and apply every rule below to it:
+- A line that is just a person's name or a team heading (optionally followed by ':' or '-') starts that person's column. The tasks on the following lines belong to that column until the next heading.
+- A single digit at the start of a task line is its priority number.
+- A task wrapped in ~~text~~, prefixed with [x], ✓ or ✔, or marked "done" is completed.
+- Bullet characters (-, *, •) are not part of the task text.
+- Wherever the rules below say image, photo, board or whiteboard, apply them to the pasted text.
+`
+    : '';
+
   const prompt = `You are an expert AI office assistant analyzing a high-resolution photograph of an office whiteboard.
 ${candidateSection}
-
+${textSourceSection}
 CRITICAL INSTRUCTION - EXHAUSTIVE MULTI-COLUMN SCANNING:
 Office whiteboards frequently contain many vertical columns (often 5, 8, 9, 10, or more) spanning across the ENTIRE width from the far-left edge to the far-right edge of the board.
 You MUST thoroughly scan the ENTIRE width of the whiteboard from left to right.
@@ -157,13 +198,6 @@ Examine every vertical column, lane, table cell, or divider line across the full
 
 Only if the image is completely blank, completely blacked out, or totally unrelated to a board, set readabilityStatus to 'unreadable'. Otherwise always set readabilityStatus to 'readable'.`;
 
-  const imagePart = {
-    inlineData: {
-      data: pureBase64,
-      mimeType: resolvedMimeType,
-    },
-  };
-
   const textPart = {
     text: `${prompt}
 
@@ -185,8 +219,10 @@ Respond ONLY with a valid JSON object matching this schema:
       ]
     }
   ]
-}`,
+}${isText ? `\n\nPASTED TASK LIST:\n${source.text}` : ''}`,
   };
+  const parts =
+    source.kind === 'image' ? [{ inlineData: { data: source.data, mimeType: source.mimeType } }, textPart] : [textPart];
 
   const jsonConfig = {
     responseMimeType: 'application/json',
@@ -228,7 +264,7 @@ Respond ONLY with a valid JSON object matching this schema:
           contents: [
             {
               role: 'user',
-              parts: [imagePart, textPart],
+              parts,
             },
           ],
           config: jsonConfig,
@@ -300,7 +336,7 @@ Respond ONLY with a valid JSON object matching this schema:
     if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
       throw new Error('API rate limit reached. Please wait a moment and try again.');
     }
-    throw new Error("Couldn't read the board, try a clearer photo");
+    throw new Error(readFailure);
   }
 
   let parsed: any;
@@ -308,7 +344,7 @@ Respond ONLY with a valid JSON object matching this schema:
     parsed = JSON.parse(rawText);
   } catch (parseErr) {
     console.error('[Gemini] JSON Parse Error:', parseErr, 'Raw Text:', rawText);
-    throw new Error("Couldn't read the board, try a clearer photo");
+    throw new Error(readFailure);
   }
 
   const rawEmployees = Array.isArray(parsed?.employees) ? parsed.employees : [];
@@ -465,10 +501,10 @@ Respond ONLY with a valid JSON object matching this schema:
   // If no columns could be extracted
   if (parsed?.readabilityStatus === 'unreadable') {
     const reason = parsed.unreadableReason ? `: ${parsed.unreadableReason}` : '';
-    throw new Error(`Couldn't read the board, try a clearer photo${reason}`);
+    throw new Error(`${readFailure}${reason}`);
   }
 
-  throw new Error("Couldn't read the board, try a clearer photo (no columns or tasks detected).");
+  throw new Error(`${readFailure} (no columns or tasks detected).`);
 
   return {
     employees: cleanedEmployees,

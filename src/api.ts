@@ -139,6 +139,35 @@ export const api = {
     });
   },
 
+  async extractBoardFromText(
+    text: string,
+    signal?: AbortSignal
+  ): Promise<{
+    employees: Array<{
+      name: string;
+      originalExtractedName?: string;
+      matchedName?: string;
+      tasks: string[];
+    }>;
+    clarityScore?: string;
+    autoMatchedCount?: number;
+  }> {
+    return request<{
+      employees: Array<{
+        name: string;
+        originalExtractedName?: string;
+        matchedName?: string;
+        tasks: string[];
+      }>;
+      clarityScore?: string;
+      autoMatchedCount?: number;
+    }>('/api/board/extract-text', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+      signal,
+    });
+  },
+
   async publishBoard(
     employees: Array<{ name: string; tasks: string[] }>,
     date?: string
