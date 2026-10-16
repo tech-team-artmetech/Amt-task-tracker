@@ -12,6 +12,7 @@ import {
   LogIn,
   Edit2,
   Calendar,
+  ClipboardList,
 } from 'lucide-react';
 import { api } from '../api';
 import { User } from '../types';
@@ -28,7 +29,7 @@ interface UploadModalProps {
       matchedName?: string;
       tasks: string[];
     }>,
-    imagePreview: string,
+    imagePreview: string | null,
     targetDate: string,
     autoMatchedCount?: number
   ) => void;
@@ -45,9 +46,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 }) => {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [targetDate, setTargetDate] = useState<string>(defaultDate || todayStr);
-  const [activeTab, setActiveTab] = useState<'upload' | 'camera'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'camera' | 'paste'>('upload');
+  const [pastedText, setPastedText] = useState('');
+  const isPasteTab = activeTab === 'paste';
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState<string>('image/jpeg');
+  const canProcess = isPasteTab ? pastedText.trim().length > 0 : Boolean(selectedImage);
 
   // Sync defaultDate if provided
   useEffect(() => {
@@ -153,7 +157,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   const handleProcessImage = async (overrideImage?: string) => {
     const imageToUse = overrideImage || selectedImage;
-    if (!imageToUse) return;
+    if (isPasteTab ? !pastedText.trim() : !imageToUse) return;
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -165,11 +169,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     setIsAuthError(false);
 
     try {
-      const res = await api.extractBoard(imageToUse, mimeType, abortControllerRef.current.signal);
+      const res = isPasteTab
+        ? await api.extractBoardFromText(pastedText, abortControllerRef.current.signal)
+        : await api.extractBoard(imageToUse!, mimeType, abortControllerRef.current.signal);
       if (!res || !Array.isArray(res.employees) || res.employees.length === 0) {
-        throw new Error("Couldn't read any team columns or tasks from this photo. Please try a clearer, well-lit photo.");
+        throw new Error(
+          isPasteTab
+            ? "Couldn't find any names or tasks in the pasted text."
+            : "Couldn't read any team columns or tasks from this photo. Please try a clearer, well-lit photo."
+        );
       }
-      onExtractionSuccess(res.employees, imageToUse, targetDate, res.autoMatchedCount);
+      onExtractionSuccess(res.employees, isPasteTab ? null : imageToUse, targetDate, res.autoMatchedCount);
       onClose();
     } catch (err: any) {
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
@@ -261,6 +271,22 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           >
             <Video className="w-3.5 h-3.5" />
             <span>Take Photo</span>
+          </button>
+
+          <button
+            id="tab-paste-tasks"
+            onClick={() => {
+              setActiveTab('paste');
+              stopCamera();
+            }}
+            className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === 'paste'
+                ? 'border-[#2E2BE6] text-[#2E2BE6]'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+            <span>Paste Tasks</span>
           </button>
 
         </div>
@@ -408,6 +434,26 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </div>
           )}
 
+          {/* TAB 3: Paste a task list as text */}
+          {activeTab === 'paste' && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="paste-tasks-input" className="text-xs font-semibold text-slate-700">
+                Paste the task list: each person's name on its own line, with their tasks below it.
+              </label>
+              <textarea
+                id="paste-tasks-input"
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                rows={12}
+                placeholder={'Om\n1 Edit reel\n2 Thumbnail x 2\n\nJay\n1 Logo\n2 Poster'}
+                className="w-full p-3 text-xs font-mono border border-slate-300 rounded-xl text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E2BE6] resize-y"
+              />
+              <p className="text-[11px] text-slate-500">
+                The number before a task sets its priority. P1 and crossed-out (~~done~~) tasks work like on the board.
+              </p>
+            </div>
+          )}
+
           {/* Error Banner */}
           {errorMessage && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex flex-col gap-2.5 animate-fadeIn">
@@ -417,7 +463,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <p className="font-semibold text-rose-900">{errorMessage}</p>
                   {!isAuthError ? (
                     <p className="text-rose-700 mt-0.5 text-[11px]">
-                      Ensure the image is in focus, column headings are clear, and tasks are handwritten underneath.
+                      {isPasteTab
+                        ? "Check that each person's name is on its own line with their tasks below it."
+                        : 'Ensure the image is in focus, column headings are clear, and tasks are handwritten underneath.'}
                     </p>
                   ) : (
                     <p className="text-rose-700 mt-0.5 text-[11px]">
@@ -427,7 +475,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 </div>
               </div>
 
-              {!isAuthError && selectedImage && (
+              {!isAuthError && selectedImage && !isPasteTab && (
                 <div className="pl-6.5 pt-0.5 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -499,9 +547,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <button
             id="btn-process-vision"
             onClick={() => handleProcessImage()}
-            disabled={!selectedImage || isProcessing}
+            disabled={!canProcess || isProcessing}
             className={`px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs font-bold shadow-xs flex items-center gap-1.5 sm:gap-2 transition-all ${
-              !selectedImage || isProcessing
+              !canProcess || isProcessing
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 : 'bg-[#2E2BE6] hover:bg-[#221fd4] text-white'
             }`}
@@ -514,7 +562,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Process with Gemini Vision</span>
+                <span>{isPasteTab ? 'Process Tasks with Gemini' : 'Process with Gemini Vision'}</span>
               </>
             )}
           </button>
