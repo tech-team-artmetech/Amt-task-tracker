@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Users, UserCheck, Shield, Check, AlertCircle, RefreshCw, Sparkles, ArrowRight } from 'lucide-react';
 import { api } from '../api';
 import { BoardColumn, ManagerOption, BoardData } from '../types';
@@ -33,8 +33,14 @@ export const ManagerAssignmentModal: React.FC<ManagerAssignmentModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Live board refreshes hand us a new `columns` array every few seconds. Read it through a ref so
+  // the checkboxes load once when the modal opens and unsaved ticks aren't reset by a refresh.
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
+
   useEffect(() => {
     if (!isOpen) return;
+    const columns = columnsRef.current;
     setError(null);
     setSuccessMsg(null);
     setLoading(true);
@@ -109,7 +115,7 @@ export const ManagerAssignmentModal: React.FC<ManagerAssignmentModalProps> = ({
         setError('Could not load manager accounts or assignments.');
       })
       .finally(() => setLoading(false));
-  }, [isOpen, columns]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
