@@ -146,6 +146,13 @@ Examine every vertical column, lane, table cell, or divider line across the full
    - Only ONE task can be P1 / top priority per person.
    - If any task is marked with P1, Priority 1, a star, exclamation, or designated as most urgent, it MUST automatically be placed on top (at index 0).
    - It requires NO tag or label (do NOT include '[P1]', 'P1:', '(P1)', 'P1 - ' or priority tags in the task text). Its position at the very top is just understood. Strip any P1 labels from the task text.
+   - Set "p1": true on that task (and false on every other task) so the app keeps it on top.
+   PRIORITY NUMBER RULE:
+   - Most tasks have a single-digit number (1-9) written just to the LEFT of the task name. That digit is the task's priority number (1 = highest priority, 2 = next, and so on).
+   - Put that digit in the task's "priority" field as an integer, and do NOT include it in the task text.
+   - If a task has no such number, set "priority" to null. Do not guess a number.
+   - Do not confuse it with quantity multipliers like 'x2' or '3x', which stay in the task text.
+   - Still list tasks in the order they appear on the board; the app sorts them by priority itself.
 4. TASKS TO TRACK:
    - Extract the legible text of each task cleanly into the tasks array.
    - STRICT ANTI-HALLUCINATION RULE: Only extract tasks that are actually written in the image. DO NOT hallucinate, invent, or add phantom or unwritten tasks.
@@ -178,6 +185,8 @@ Respond ONLY with a valid JSON object matching this schema:
       "tasks": [
         {
           "text": "Task description",
+          "priority": 1,
+          "p1": false,
           "completed": false
         }
       ]
@@ -329,6 +338,9 @@ Respond ONLY with a valid JSON object matching this schema:
   // Filter and clean employees list
   // Rule: Only one task can be P1. It should automatically be placed on top and requires no tag/label.
   const p1Regex = /^\s*(\[P1\]|P1\s*[-:]|\(P1\)|\bP1\b)\s*/i;
+  // A single digit written left of the task name is its priority number (1 = top).
+  // Used as a fallback when the model leaves the digit in the text instead of the priority field.
+  const leadingPriorityRegex = /^\s*([1-9])(?:\s*[.):-]\s*|\s+)(?=\S)/;
 
   let autoMatchedCount = 0;
   const cleanedEmployees = rawEmployees
@@ -337,6 +349,8 @@ Respond ONLY with a valid JSON object matching this schema:
       interface NormalizedTask {
         text: string;
         completed: boolean;
+        priority: number | null;
+        p1: boolean;
       }
 
       const rawTaskList = Array.isArray(e?.tasks) ? e.tasks : [];
@@ -345,12 +359,19 @@ Respond ONLY with a valid JSON object matching this schema:
       for (const item of rawTaskList) {
         let taskText = '';
         let isCompleted = false;
+        let priority: number | null = null;
+        let isP1 = false;
 
         if (typeof item === 'string') {
           taskText = item.trim();
         } else if (item && typeof item === 'object') {
           taskText = typeof item.text === 'string' ? item.text.trim() : '';
           isCompleted = Boolean(item.completed) || Boolean(item.done);
+          isP1 = item.p1 === true;
+          const rawPriority = Number(item.priority);
+          if (Number.isInteger(rawPriority) && rawPriority >= 1 && rawPriority <= 9) {
+            priority = rawPriority;
+          }
         }
 
         const hasStrikethroughMarker = /~~|\[x\]|\(done\)|\(finished\)|\(completed\)|\(struck(\s+through)?\)|\(crossed(\s+out)?\)|^[✓✔☑]/i.test(taskText);
@@ -369,19 +390,38 @@ Respond ONLY with a valid JSON object matching this schema:
           continue;
         }
 
+        const leadingPriority = taskText.match(leadingPriorityRegex);
+        if (leadingPriority) {
+          if (priority === null) priority = Number(leadingPriority[1]);
+          taskText = taskText.slice(leadingPriority[0].length).trim();
+        }
+
         if (taskText.length > 0) {
           normalizedTasks.push({
             text: taskText,
             completed: isCompleted,
+            priority,
+            p1: isP1,
           });
         }
       }
 
+      // Order by the priority number written on the board (1 first). Tasks without a number
+      // go after the numbered ones; ties and unnumbered tasks keep their board order.
+      const prioritizedTasks = normalizedTasks
+        .map((t, idx) => ({ t, idx }))
+        .sort((a, b) => {
+          const aP = a.t.priority ?? Number.POSITIVE_INFINITY;
+          const bP = b.t.priority ?? Number.POSITIVE_INFINITY;
+          return aP !== bP ? aP - bP : a.idx - b.idx;
+        })
+        .map(({ t }) => t);
+
       // Check if any task was explicitly flagged as P1
-      let p1TaskIndex = normalizedTasks.findIndex((t) => p1Regex.test(t.text));
+      let p1TaskIndex = prioritizedTasks.findIndex((t) => t.p1 || p1Regex.test(t.text));
 
       // Strip P1 tags/labels from all tasks
-      const sanitizedTasks = normalizedTasks
+      const sanitizedTasks = prioritizedTasks
         .map((t) => ({
           text: t.text.replace(p1Regex, '').trim(),
           completed: t.completed,
