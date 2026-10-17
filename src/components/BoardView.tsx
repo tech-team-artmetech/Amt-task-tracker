@@ -733,9 +733,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
             <h1 className="font-display font-black text-lg sm:text-3xl lg:text-4xl text-[#0A0E2A] tracking-tight uppercase leading-tight break-words">
               AMT Task Tracker
             </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-slate-500 mt-1 sm:mt-2 font-medium leading-relaxed">
-              Tasklists converted directly into actionable team columns. The top task in each column is automatically prioritized as P1 with zero manual tagging required.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 min-w-0">
