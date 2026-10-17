@@ -2314,6 +2314,24 @@ export async function adminEditBoard(
           await tx.delete(taskComments).where(inArray(taskComments.taskId, completedIds));
           await tx.delete(boardTasks).where(inArray(boardTasks.id, completedIds));
         }
+      } else if (effectDate > todayStr) {
+        // Clearing a column on a future date: only remove tasks assigned to that date.
+        // Earlier days' unfinished tasks carry forward onto the future board, but they
+        // still belong to today (or whichever day they were given) and must not be wiped.
+        const futureTasks = await tx
+          .select({ id: boardTasks.id })
+          .from(boardTasks)
+          .where(
+            and(
+              eq(boardTasks.columnId, action.columnId),
+              eq(boardTasks.assignedDate, effectDate)
+            )
+          );
+        const futureIds = futureTasks.map((t: any) => t.id);
+        if (futureIds.length > 0) {
+          await tx.delete(taskComments).where(inArray(taskComments.taskId, futureIds));
+          await tx.delete(boardTasks).where(inArray(boardTasks.id, futureIds));
+        }
       } else {
         // Clearing on today: remove all tasks up to today
         const tasksToClear = await tx
