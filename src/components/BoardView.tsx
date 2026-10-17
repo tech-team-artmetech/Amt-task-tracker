@@ -1318,19 +1318,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
                             ? 'No finished tasks yet'
                             : 'No tasks'}
                         </p>
-                        {isMyColumn && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAddingTaskColId(column.id);
-                              setNewTaskText('');
-                            }}
-                            className="px-2.5 py-1 text-xs font-bold text-[#2E2BE6] bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add task for myself</span>
-                          </button>
-                        )}
                       </div>
                     );
                   }
