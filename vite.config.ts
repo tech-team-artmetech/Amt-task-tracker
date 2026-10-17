@@ -15,6 +15,9 @@ export default defineConfig(() => {
       include: ['react', 'react-dom', 'react-dom/client', 'lucide-react'],
     },
     server: {
+      // The GoDaddy preview (*.airoapp.ai) and the company domain run the app
+      // through Vite in dev mode, so Vite must accept those hostnames.
+      allowedHosts: ['.airoapp.ai', '.artmetech.in'],
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
