@@ -2197,45 +2197,17 @@ export async function adminEditBoard(
         });
       }
     } else if (action.type === 'delete_day_tasks') {
-      const todayStr = getRelativeDateString(0);
-      const isPastDate = targetDate < todayStr;
+      // 1. Delete only the tasks given on targetDate. Tasks carried forward from
+      // earlier days stay on their own day and can only be deleted from that day's tab.
+      const tasksForDate = await tx
+        .select({ id: boardTasks.id })
+        .from(boardTasks)
+        .where(eq(boardTasks.assignedDate, targetDate));
 
-      if (isPastDate) {
-        // Any uncompleted tasks assigned to targetDate must continue rolling into today!
-        const uncompleted = await tx
-          .select({ id: boardTasks.id })
-          .from(boardTasks)
-          .where(and(eq(boardTasks.assignedDate, targetDate), eq(boardTasks.completed, 0)));
-        const uncompletedIds = uncompleted.map((t: any) => t.id);
-        if (uncompletedIds.length > 0) {
-          await tx
-            .update(boardTasks)
-            .set({ assignedDate: todayStr })
-            .where(inArray(boardTasks.id, uncompletedIds));
-        }
-
-        // Completed tasks for targetDate can be purged from history
-        const completed = await tx
-          .select({ id: boardTasks.id })
-          .from(boardTasks)
-          .where(and(eq(boardTasks.assignedDate, targetDate), eq(boardTasks.completed, 1)));
-        const compIds = completed.map((t: any) => t.id);
-        if (compIds.length > 0) {
-          await tx.delete(taskComments).where(inArray(taskComments.taskId, compIds));
-          await tx.delete(boardTasks).where(inArray(boardTasks.id, compIds));
-        }
-      } else {
-        // 1. Delete tasks assigned to targetDate (Today)
-        const tasksForDate = await tx
-          .select({ id: boardTasks.id })
-          .from(boardTasks)
-          .where(eq(boardTasks.assignedDate, targetDate));
-        
-        const tIds = tasksForDate.map((t: any) => t.id);
-        if (tIds.length > 0) {
-          await tx.delete(taskComments).where(inArray(taskComments.taskId, tIds));
-          await tx.delete(boardTasks).where(inArray(boardTasks.id, tIds));
-        }
+      const tIds = tasksForDate.map((t: any) => t.id);
+      if (tIds.length > 0) {
+        await tx.delete(taskComments).where(inArray(taskComments.taskId, tIds));
+        await tx.delete(boardTasks).where(inArray(boardTasks.id, tIds));
       }
 
       // 2. Exclude all columns currently visible on targetDate for this date
@@ -2270,86 +2242,23 @@ export async function adminEditBoard(
         }
       }
     } else if ((action.type === 'delete_column' || (action.type as any) === 'clear_column_tasks') && action.columnId) {
+      // Clearing a column removes only the tasks given on the selected date, on any tab
+      // (past, today or future). Tasks carried forward from earlier days stay in the
+      // column and can only be deleted from the tab of the day they were given.
       const effectDate = action.assignedDate || targetDate || getRelativeDateString(0);
-      const todayStr = getRelativeDateString(0);
-      const isPastDate = effectDate < todayStr;
-
-      if (isPastDate) {
-        // Clearing a column on a past date:
-        // 1. Any uncompleted tasks rolling into today must NOT be wiped out!
-        // Advance their assignedDate to todayStr so today's tasklist remains completely preserved,
-        // while removing them from this past date.
-        const uncompletedPastTasks = await tx
-          .select({ id: boardTasks.id })
-          .from(boardTasks)
-          .where(
-            and(
-              eq(boardTasks.columnId, action.columnId),
-              sql`(${boardTasks.assignedDate} IS NULL OR ${boardTasks.assignedDate} <= ${effectDate})`,
-              eq(boardTasks.completed, 0)
-            )
-          );
-
-        const uncompletedIds = uncompletedPastTasks.map((t: any) => t.id);
-        if (uncompletedIds.length > 0) {
-          await tx
-            .update(boardTasks)
-            .set({ assignedDate: todayStr })
-            .where(inArray(boardTasks.id, uncompletedIds));
-        }
-
-        // 2. Completed tasks on or before this past date are removed from this past day
-        const completedPastTasks = await tx
-          .select({ id: boardTasks.id })
-          .from(boardTasks)
-          .where(
-            and(
-              eq(boardTasks.columnId, action.columnId),
-              eq(boardTasks.assignedDate, effectDate),
-              eq(boardTasks.completed, 1)
-            )
-          );
-        const completedIds = completedPastTasks.map((t: any) => t.id);
-        if (completedIds.length > 0) {
-          await tx.delete(taskComments).where(inArray(taskComments.taskId, completedIds));
-          await tx.delete(boardTasks).where(inArray(boardTasks.id, completedIds));
-        }
-      } else if (effectDate > todayStr) {
-        // Clearing a column on a future date: only remove tasks assigned to that date.
-        // Earlier days' unfinished tasks carry forward onto the future board, but they
-        // still belong to today (or whichever day they were given) and must not be wiped.
-        const futureTasks = await tx
-          .select({ id: boardTasks.id })
-          .from(boardTasks)
-          .where(
-            and(
-              eq(boardTasks.columnId, action.columnId),
-              eq(boardTasks.assignedDate, effectDate)
-            )
-          );
-        const futureIds = futureTasks.map((t: any) => t.id);
-        if (futureIds.length > 0) {
-          await tx.delete(taskComments).where(inArray(taskComments.taskId, futureIds));
-          await tx.delete(boardTasks).where(inArray(boardTasks.id, futureIds));
-        }
-      } else {
-        // Clearing on today: remove all tasks up to today
-        const tasksToClear = await tx
-          .select({ id: boardTasks.id })
-          .from(boardTasks)
-          .where(
-            and(
-              eq(boardTasks.columnId, action.columnId),
-              sql`(${boardTasks.assignedDate} IS NULL OR ${boardTasks.assignedDate} <= ${effectDate})`,
-              sql`(${boardTasks.completed} = 0 OR ${boardTasks.completedAt} IS NULL OR SUBSTR(${boardTasks.completedAt}, 1, 10) >= ${effectDate})`
-            )
-          );
-
-        const clearIds = tasksToClear.map((t: any) => t.id);
-        if (clearIds.length > 0) {
-          await tx.delete(taskComments).where(inArray(taskComments.taskId, clearIds));
-          await tx.delete(boardTasks).where(inArray(boardTasks.id, clearIds));
-        }
+      const tasksForDate = await tx
+        .select({ id: boardTasks.id })
+        .from(boardTasks)
+        .where(
+          and(
+            eq(boardTasks.columnId, action.columnId),
+            eq(boardTasks.assignedDate, effectDate)
+          )
+        );
+      const clearIds = tasksForDate.map((t: any) => t.id);
+      if (clearIds.length > 0) {
+        await tx.delete(taskComments).where(inArray(taskComments.taskId, clearIds));
+        await tx.delete(boardTasks).where(inArray(boardTasks.id, clearIds));
       }
       // Note: The column itself is NOT removed or soft-deleted. Columns only go away when user account is removed.
 
