@@ -5,7 +5,6 @@ import {
   Download,
   Search,
   ArrowRight,
-  Sparkles,
   CheckCircle2,
   Clock,
   Layers,
@@ -36,7 +35,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'carried' | 'changes'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'carried'>('all');
 
   const fetchReport = async (monthStr: string) => {
     setIsLoading(true);
@@ -81,29 +80,24 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
       'Manager',
       'Total Tasks Assigned',
       'Carry Forwards',
-      'Changes Received',
       'Completed Tasks',
       'Pending Tasks',
       'Completion Rate (%)',
       'Carried Forward Task Titles',
-      'Changes Task Titles',
     ];
 
     const rows = report.employees.map((emp) => {
       const carriedTitles = emp.carriedForwardTasks.map((t) => `"${t.text.replace(/"/g, '""')}"`).join('; ');
-      const changesTitles = emp.changesTasks.map((t) => `"${t.text.replace(/"/g, '""')}"`).join('; ');
 
       return [
         `"${emp.employeeName.replace(/"/g, '""')}"`,
         `"${(emp.managerName || 'Unassigned').replace(/"/g, '""')}"`,
         emp.totalTasksAssigned,
         emp.carryForwardCount,
-        emp.changesCount,
         emp.completedTasks,
         emp.pendingTasks,
         `${emp.completionRate}%`,
         `"${carriedTitles}"`,
-        `"${changesTitles}"`,
       ].join(',');
     });
 
@@ -129,10 +123,10 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
               </span>
               <div>
                 <h2 className="text-base sm:text-xl font-black text-[#0A0E2A] uppercase tracking-tight">
-                  Monthly Performance & Changes Report
+                  Monthly Performance Report
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Monthly summary of employee carry-forwards, changes received, and task completions
+                  Monthly summary of employee carry-forwards and task completions
                 </p>
               </div>
             </div>
@@ -188,7 +182,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
 
           {/* Aggregate KPI Summary Cards */}
           {report && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-4 text-center">
                 <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   <Users className="w-3.5 h-3.5 text-slate-400" />
@@ -209,16 +203,6 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                 </div>
               </div>
 
-              <div className="bg-purple-50/80 border border-purple-200 rounded-2xl p-3 sm:p-4 text-center">
-                <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-purple-700 uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Changes Received</span>
-                </div>
-                <div className="text-xl sm:text-2xl font-black text-purple-900 mt-1">
-                  {report.summary.totalChanges}
-                </div>
-              </div>
-
               <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3 sm:p-4 text-center">
                 <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -232,7 +216,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                 </div>
               </div>
 
-              <div className="col-span-2 sm:col-span-1 bg-blue-50/70 border border-blue-200 rounded-2xl p-3 sm:p-4 text-center">
+              <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-3 sm:p-4 text-center">
                 <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-blue-700 uppercase tracking-wider">
                   <Layers className="w-3.5 h-3.5 text-blue-600" />
                   <span>Total Tasks</span>
@@ -285,9 +269,6 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                       <th className="py-3 px-3 text-center">
                         <span className="text-amber-700">Carry Forwards</span>
                       </th>
-                      <th className="py-3 px-3 text-center">
-                        <span className="text-purple-700">Changes Received</span>
-                      </th>
                       <th className="py-3 px-3 text-center">Completed</th>
                       <th className="py-3 px-3 text-center">Pending</th>
                       <th className="py-3 px-3 text-center">Total Tasks</th>
@@ -338,19 +319,6 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                               </span>
                             </td>
 
-                            {/* Changes Received */}
-                            <td className="py-3 px-3 text-center">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                  emp.changesCount > 0
-                                    ? 'bg-purple-100 text-purple-900 border border-purple-200'
-                                    : 'bg-slate-100 text-slate-400'
-                                }`}
-                              >
-                                <Sparkles className="w-2.5 h-2.5 text-purple-600" />
-                                <span>{emp.changesCount}</span>
-                              </span>
-                            </td>
 
                             <td className="py-3 px-3 text-center font-bold text-emerald-700">
                               {emp.completedTasks}
@@ -407,7 +375,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                           {/* Expanded Task Breakdown for Employee */}
                           {isExpanded && (
                             <tr>
-                              <td colSpan={9} className="p-0 bg-slate-50/70 border-y border-slate-200">
+                              <td colSpan={8} className="p-0 bg-slate-50/70 border-y border-slate-200">
                                 <div className="p-4 sm:p-5 space-y-4">
                                   <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                                     <span className="text-xs font-black text-[#0A0E2A] uppercase tracking-wide">
@@ -415,7 +383,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                                     </span>
                                   </div>
 
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 gap-4">
                                     {/* Carried Forward Tasks */}
                                     <div className="bg-white border border-amber-200/80 rounded-xl p-3 shadow-2xs">
                                       <div className="flex items-center justify-between mb-2">
@@ -444,38 +412,6 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                                         </ul>
                                       )}
                                     </div>
-
-                                    {/* Changes Received Tasks */}
-                                    <div className="bg-white border border-purple-200 rounded-xl p-3 shadow-2xs">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800">
-                                          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                                          <span>Changes Received ({emp.changesTasks.length})</span>
-                                        </div>
-                                        <span className="text-[10px] text-slate-400 font-medium italic">
-                                          Tasks matching &quot;changes&quot;
-                                        </span>
-                                      </div>
-                                      {emp.changesTasks.length === 0 ? (
-                                        <p className="text-[11px] text-slate-400 italic">No tasks with &quot;changes&quot; received this month.</p>
-                                      ) : (
-                                        <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                                          {emp.changesTasks.map((t) => (
-                                            <li
-                                              key={t.id}
-                                              className="text-[11px] p-2 rounded-lg bg-purple-50/60 border border-purple-100 flex items-start justify-between gap-2"
-                                            >
-                                              <span className="text-slate-800 font-medium leading-snug">
-                                                {t.text}
-                                              </span>
-                                              <span className="shrink-0 text-[10px] text-purple-700 font-bold px-1.5 py-0.5 rounded bg-purple-100">
-                                                {t.assignedDate}
-                                              </span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      )}
-                                    </div>
                                   </div>
                                 </div>
                               </td>
@@ -492,10 +428,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
-          <div className="text-[11px]">
-            Rule: <em>Any task with &quot;changes&quot; written after it is counted as a change.</em>
-          </div>
+        <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end text-xs text-slate-500">
           <button
             type="button"
             onClick={onClose}

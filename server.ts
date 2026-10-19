@@ -751,7 +751,7 @@ async function startServer() {
     res.sendFile(swPath);
   });
 
-  // GET /api/reports/monthly: Monthly carry-forwards and changes report (Strictly Admin only)
+  // GET /api/reports/monthly: Monthly carry-forwards report (Strictly Admin only)
   app.get(
     '/api/reports/monthly',
     authMiddleware,

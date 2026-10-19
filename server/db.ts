@@ -2832,14 +2832,6 @@ export interface EmployeeMonthlyReportItem {
     completed: boolean;
     completedAt?: string | null;
   }>;
-  changesCount: number;
-  changesTasks: Array<{
-    id: string;
-    text: string;
-    assignedDate: string;
-    completed: boolean;
-    completedAt?: string | null;
-  }>;
 }
 
 export interface MonthlyReportResponse {
@@ -2852,18 +2844,9 @@ export interface MonthlyReportResponse {
     totalCompleted: number;
     totalPending: number;
     totalCarryForwards: number;
-    totalChanges: number;
     averageCompletionRate: number;
   };
   employees: EmployeeMonthlyReportItem[];
-}
-
-export function isChangeTask(taskText: string): boolean {
-  if (!taskText) return false;
-  const t = taskText.trim().toLowerCase();
-  // User spec: Any task that has "changes" written after it is a change
-  // Matches "changes" as a word, suffix, or in brackets e.g. "Navbar - changes", "Card layout (changes)", "Fix header changes"
-  return /\bchanges?\b/i.test(t);
 }
 
 export async function getMonthlyEmployeeReport(
@@ -2967,7 +2950,6 @@ export async function getMonthlyEmployeeReport(
     let completedTasks = 0;
     let pendingTasks = 0;
     const carriedForwardTasks: EmployeeMonthlyReportItem['carriedForwardTasks'] = [];
-    const changesTasks: EmployeeMonthlyReportItem['changesTasks'] = [];
 
     for (const t of monthTasks) {
       const aDate = t.assignedDate || todayStr;
@@ -2979,18 +2961,6 @@ export async function getMonthlyEmployeeReport(
         completedTasks++;
       } else {
         pendingTasks++;
-      }
-
-      // Check for "changes" task:
-      // Spec: Any task that has "changes" written after it is a change
-      if (isChangeTask(t.text)) {
-        changesTasks.push({
-          id: t.id,
-          text: t.text,
-          assignedDate: aDate,
-          completed: isCompleted,
-          completedAt: t.completedAt,
-        });
       }
 
       // Check for Carry Forward:
@@ -3032,8 +3002,6 @@ export async function getMonthlyEmployeeReport(
       completionRate,
       carryForwardCount: carriedForwardTasks.length,
       carriedForwardTasks,
-      changesCount: changesTasks.length,
-      changesTasks,
     });
   }
 
@@ -3043,7 +3011,6 @@ export async function getMonthlyEmployeeReport(
   const totalCompleted = employeeReports.reduce((sum, e) => sum + e.completedTasks, 0);
   const totalPending = employeeReports.reduce((sum, e) => sum + e.pendingTasks, 0);
   const totalCarryForwards = employeeReports.reduce((sum, e) => sum + e.carryForwardCount, 0);
-  const totalChanges = employeeReports.reduce((sum, e) => sum + e.changesCount, 0);
   const averageCompletionRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
 
   return {
@@ -3056,7 +3023,6 @@ export async function getMonthlyEmployeeReport(
       totalCompleted,
       totalPending,
       totalCarryForwards,
-      totalChanges,
       averageCompletionRate,
     },
     employees: employeeReports,
