@@ -1324,6 +1324,11 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
                   return displayedTasks.map((task, idx) => {
                     const isTopPriority = idx === 0 && !task.completed;
+                    // The day's own tasks always sit above carry-forwards, so tasks only move within their own group
+                    const canMoveUp = idx > 0 && Boolean(displayedTasks[idx - 1].isGivenToday) === Boolean(task.isGivenToday);
+                    const canMoveDown =
+                      idx < displayedTasks.length - 1 &&
+                      Boolean(displayedTasks[idx + 1].isGivenToday) === Boolean(task.isGivenToday);
                     const isDragging = draggedTaskId === task.id;
                     const isOverThisTask = dragOverTaskId === task.id;
 
@@ -1407,10 +1412,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                       e.stopPropagation();
                                       handleMoveTaskPriority(column.id, task.id, 'up');
                                     }}
-                                    disabled={idx === 0}
+                                    disabled={!canMoveUp}
                                     title="Move Task Up (Top is P1)"
                                     className={`p-1 rounded ${
-                                      idx === 0
+                                      !canMoveUp
                                         ? 'text-slate-200 cursor-not-allowed'
                                         : 'text-slate-500 hover:text-slate-900 active:bg-slate-200 cursor-pointer'
                                     }`}
@@ -1423,10 +1428,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                       e.stopPropagation();
                                       handleMoveTaskPriority(column.id, task.id, 'down');
                                     }}
-                                    disabled={idx === displayedTasks.length - 1}
+                                    disabled={!canMoveDown}
                                     title="Move Task Down"
                                     className={`p-1 rounded ${
-                                      idx === displayedTasks.length - 1
+                                      !canMoveDown
                                         ? 'text-slate-200 cursor-not-allowed'
                                         : 'text-slate-500 hover:text-slate-900 active:bg-slate-200 cursor-pointer'
                                     }`}
