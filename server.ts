@@ -152,7 +152,7 @@ async function startServer() {
     }
   );
 
-  // POST /api/admin/users: Create new employee, manager, admin, or custom role user
+  // POST /api/admin/users: Create a new admin, manager, or department role user
   app.post(
     '/api/admin/users',
     authMiddleware,
@@ -458,11 +458,11 @@ async function startServer() {
     }
   );
 
-  // PUT /api/board/edit: Admin, Manager, and Employee editing of tasks
+  // PUT /api/board/edit: Admin, Manager, and department member editing of tasks
   app.put(
     '/api/board/edit',
     authMiddleware,
-    requireRole(['admin', 'manager', 'employee']),
+    requireRole(['admin', 'manager', 'member']),
     async (req: AuthenticatedRequest, res) => {
       try {
         const { action, date } = req.body;
