@@ -1942,7 +1942,7 @@ export async function getBoard(selectedDate?: string, requestingUser?: User | nu
   };
 }
 
-export async function replaceBoard(
+export async function addTasksToBoard(
   employees: Array<{ name: string; tasks: string[] }>,
   publishedByUserId: string,
   forDate?: string
@@ -1951,20 +1951,15 @@ export async function replaceBoard(
   const assignedDate = (forDate && /^\d{4}-\d{2}-\d{2}$/.test(forDate)) ? forDate : getRelativeDateString(0);
 
   await db.transaction(async (tx: any) => {
-    // 1. Delete comments for tasks belonging to this assignedDate
+    // Publishing adds to the day's board: tasks already on it (done, carried forward or edited) stay as they are.
+    // If the day already had tasks, existing columns keep their order and new people are added at the end.
     const existingDateTasks = await tx
       .select({ id: boardTasks.id })
       .from(boardTasks)
       .where(eq(boardTasks.assignedDate, assignedDate));
+    const isAddingToExistingDay = existingDateTasks.length > 0;
 
-    for (const dt of existingDateTasks) {
-      await tx.delete(taskComments).where(eq(taskComments.taskId, dt.id));
-    }
-
-    // 2. Remove previous tasks that were originally assigned to this specific date
-    await tx.delete(boardTasks).where(eq(boardTasks.assignedDate, assignedDate));
-
-    // 3. Update board metadata
+    // 1. Update board metadata
     const now = new Date().toISOString();
     await tx
       .insert(boardMeta)
@@ -1981,7 +1976,7 @@ export async function replaceBoard(
         },
       });
 
-    // 4. Upsert or create columns for each employee
+    // 2. Upsert or create columns for each employee
     const allExistingCols = await tx.select().from(boardColumns);
     const existingColNames = allExistingCols.map((c: any) => c.employeeName);
 
@@ -1994,7 +1989,8 @@ export async function replaceBoard(
       return 0;
     });
 
-    let colOrder = 0;
+    const maxColOrder = allExistingCols.reduce((m: number, c: any) => Math.max(m, c.sortOrder || 0), -1);
+    let colOrder = isAddingToExistingDay ? maxColOrder + 1 : 0;
     for (const emp of sortedEmployees) {
       let cleanName = (emp.name || '').trim();
       if (!cleanName && (!emp.tasks || emp.tasks.length === 0)) continue;
@@ -2023,7 +2019,12 @@ export async function replaceBoard(
         columnId = matchedExisting.id;
         await tx
           .update(boardColumns)
-          .set({ sortOrder: colOrder++, employeeName: cleanName, department: dept, deletedFromDate: null })
+          .set({
+            ...(isAddingToExistingDay ? {} : { sortOrder: colOrder++ }),
+            employeeName: cleanName,
+            department: dept,
+            deletedFromDate: null,
+          })
           .where(eq(boardColumns.id, columnId));
       } else {
         columnId = crypto.randomUUID();
@@ -2047,8 +2048,19 @@ export async function replaceBoard(
         });
       }
 
-      // 5. Insert new tasks for this employee on the chosen assignedDate
-      let taskOrder = 1;
+      // 3. Add the new tasks after this person's existing ones, skipping any task already showing on that day
+      const columnTasks = await tx
+        .select()
+        .from(boardTasks)
+        .where(eq(boardTasks.columnId, columnId));
+      const normalizeTaskText = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
+      const tasksShownOnDay = columnTasks.filter(
+        (ct: any) =>
+          (!ct.assignedDate || ct.assignedDate <= assignedDate) &&
+          (ct.completed === 0 || !ct.completedAt || ct.completedAt.substring(0, 10) >= assignedDate)
+      );
+      const shownTextKeys = new Set<string>(tasksShownOnDay.map((ct: any) => normalizeTaskText(ct.text || '')));
+      let taskOrder = columnTasks.reduce((m: number, ct: any) => Math.max(m, ct.sortOrder || 0), 0) + 1;
       for (const t of emp.tasks || []) {
         let isDone = false;
         let rawText = '';
@@ -2063,6 +2075,10 @@ export async function replaceBoard(
         if (!rawText) continue;
         const text = rawText.replace(/^\s*(\[P1\]|P1\s*[-:]|\(P1\)|\bP1\b)\s*/i, '').trim();
         if (!text) continue;
+
+        const textKey = normalizeTaskText(text);
+        if (shownTextKeys.has(textKey)) continue;
+        shownTextKeys.add(textKey);
 
         const taskId = crypto.randomUUID();
         const nowIso = new Date().toISOString();

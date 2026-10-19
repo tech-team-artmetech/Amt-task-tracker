@@ -15,7 +15,7 @@ import {
   getUserById,
   validateUserLogin,
   getBoard,
-  replaceBoard,
+  addTasksToBoard,
   reorderBoard,
   adminEditBoard,
   addTaskComment,
@@ -414,7 +414,7 @@ async function startServer() {
     }
   );
 
-  // POST /api/board/publish: Confirm review and replace the board for the selected date (Admin only)
+  // POST /api/board/publish: Confirm review and add the tasks to the board for the selected date (Admin only)
   app.post(
     '/api/board/publish',
     authMiddleware,
@@ -427,7 +427,7 @@ async function startServer() {
           return;
         }
 
-        const newBoard = await replaceBoard(employees, req.user!.id, date);
+        const newBoard = await addTasksToBoard(employees, req.user!.id, date);
         res.json({ success: true, board: newBoard });
       } catch (err: any) {
         console.error('[Publish Board Error]', err);
