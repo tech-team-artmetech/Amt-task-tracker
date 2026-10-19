@@ -437,7 +437,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               <span className="font-bold">Handwriting OCR verification: </span>
               Compare the extracted columns against your tasklist photo.
               Click the pencil icon next to any person's name to change or select from your registered employees.
-              Once confirmed, these tasks will be <strong>added to the board for {selectedDate}</strong>. Tasks already on that day stay as they are, and any task already there is not added twice.
+              Once confirmed, these tasks will be <strong>added to the board for {selectedDate}</strong>. Tasks already on the board stay as they are. A task already given for that day is not added twice, while carried-over tasks stay separate.
             </div>
           </div>
 
