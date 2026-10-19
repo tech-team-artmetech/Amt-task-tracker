@@ -12,6 +12,7 @@ import {
   notifications,
   columnDateExclusions,
   appRoles,
+  removedSeedAccounts,
 } from '../src/db/schema.ts';
 import type { User, BoardColumn, BoardTask, BoardData, Role, TaskComment, ManagerOption, ManagerAssignment, AppRole } from './types.ts';
 import { matchToRegisteredTeamMember } from './gemini.ts';
@@ -453,6 +454,13 @@ export async function initDatabase(): Promise<void> {
     );
   `);
 
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS removed_seed_accounts (
+      email text PRIMARY KEY,
+      removed_at text NOT NULL
+    );
+  `);
+
   // Seed default roles into app_roles if not already present
   try {
     const defaultRoles = [
@@ -603,8 +611,14 @@ export async function updateUserPassword(userId: string, newPlainPassword: strin
 }
 
 async function seedAccounts(): Promise<void> {
+  // Built-in accounts an admin deleted stay deleted across restarts.
+  const removed = new Set(
+    (await db.select({ email: removedSeedAccounts.email }).from(removedSeedAccounts)).map((r: any) => r.email)
+  );
+
   for (const account of SEED_ACCOUNTS) {
     const cleanEmail = account.email.trim().toLowerCase();
+    if (removed.has(cleanEmail)) continue;
     const existing = await db
       .select()
       .from(users)
@@ -1159,6 +1173,9 @@ export async function createNewUser(params: {
     createdAt: now,
   });
 
+  // An admin re-adding a deleted built-in account clears its removal record.
+  await db.delete(removedSeedAccounts).where(eq(removedSeedAccounts.email, cleanEmail));
+
   // Also update column department or create column if role corresponds to a department
   if (params.role && params.role !== 'admin') {
     const dept = params.role === 'manager' ? 'Managers' : params.role.trim();
@@ -1462,6 +1479,15 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   await db.delete(notifications).where(eq(notifications.userId, userId));
 
   await db.delete(users).where(eq(users.id, userId));
+
+  // Remember deleted built-in accounts so seeding on the next restart does not recreate them.
+  const cleanEmail = target.email.trim().toLowerCase();
+  if (SEED_ACCOUNTS.some((a) => a.email.trim().toLowerCase() === cleanEmail)) {
+    await db
+      .insert(removedSeedAccounts)
+      .values({ email: cleanEmail, removedAt: new Date().toISOString() })
+      .onConflictDoNothing();
+  }
   saveDatabase(true);
 }
 

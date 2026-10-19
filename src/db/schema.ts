@@ -104,6 +104,12 @@ export const appRoles = sqliteTable('app_roles', {
   createdAt: text('created_at').notNull(),
 });
 
+// Built-in accounts an admin has deleted, so startup seeding does not bring them back.
+export const removedSeedAccounts = sqliteTable('removed_seed_accounts', {
+  email: text('email').primaryKey(),
+  removedAt: text('removed_at').notNull(),
+});
+
 export const boardColumnsRelations = relations(boardColumns, ({ many }) => ({
   tasks: many(boardTasks),
 }));
