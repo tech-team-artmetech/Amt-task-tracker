@@ -164,14 +164,6 @@ export interface EmployeeMonthlyReportItem {
     completed: boolean;
     completedAt?: string | null;
   }>;
-  changesCount: number;
-  changesTasks: Array<{
-    id: string;
-    text: string;
-    assignedDate: string;
-    completed: boolean;
-    completedAt?: string | null;
-  }>;
 }
 
 export interface MonthlyReportResponse {
@@ -184,7 +176,6 @@ export interface MonthlyReportResponse {
     totalCompleted: number;
     totalPending: number;
     totalCarryForwards: number;
-    totalChanges: number;
     averageCompletionRate: number;
   };
   employees: EmployeeMonthlyReportItem[];
