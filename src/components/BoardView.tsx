@@ -128,8 +128,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
   // Adding state for Admin
   const [addingTaskColId, setAddingTaskColId] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
-  const [isAddingColumn, setIsAddingColumn] = useState(false);
-  const [newColumnName, setNewColumnName] = useState('');
 
   // Comments state (Admin & Manager can post/delete comments)
   const [openCommentsTaskIds, setOpenCommentsTaskIds] = useState<Record<string, boolean>>({});
@@ -681,19 +679,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
     setAddingTaskColId(null);
   };
 
-  const saveNewColumn = async () => {
-    if (!newColumnName.trim()) return;
-    await onAdminEdit(
-      {
-        type: 'add_column',
-        name: newColumnName.trim(),
-      },
-      selectedDate
-    );
-    setNewColumnName('');
-    setIsAddingColumn(false);
-  };
-
   // Column avatar colors based on name hash for visual distinction
   const getAvatarColor = (name: string) => {
     const colors = [
@@ -763,20 +748,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
               </button>
             )}
 
-            {isAdmin && (
-              <>
-                {!isPastDate && (
-                  <button
-                    id="btn-admin-add-column"
-                    onClick={() => setIsAddingColumn(true)}
-                    className="flex items-center justify-center gap-1 text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-full shadow-2xs transition-all cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-[#2E2BE6]" />
-                    <span>Add task column</span>
-                  </button>
-                )}
-              </>
-            )}
             {isAdmin && (
               <div className="hidden sm:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-[#2E2BE6] font-semibold">
                 <GripVertical className="w-3.5 h-3.5" />
@@ -953,38 +924,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
         />
       </div>
 
-      {/* Admin Add Person Modal/Input */}
-      {isAddingColumn && (
-        <div className="w-full mb-6 bg-white border border-indigo-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
-          <input
-            id="input-new-column-name"
-            type="text"
-            placeholder="Team member name..."
-            value={newColumnName}
-            onChange={(e) => setNewColumnName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && saveNewColumn()}
-            autoFocus
-            className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <button
-            id="btn-confirm-new-column"
-            onClick={saveNewColumn}
-            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg"
-          >
-            Add Column
-          </button>
-          <button
-            onClick={() => {
-              setIsAddingColumn(false);
-              setNewColumnName('');
-            }}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
       {/* Columns Container */}
       <div className="flex items-start gap-3.5 sm:gap-6 overflow-x-auto pb-12 w-full min-w-0 snap-x sm:snap-none overscroll-x-contain">
         {visibleColumns.length === 0 ? (
@@ -1012,7 +951,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 ? `There are no columns currently assigned to the ${departmentFilter} department. Select "All Departments" to view all members.`
                 : isPastDate
                 ? `No taskboard columns or tasks were saved for ${selectedDate}. You can navigate to other dates above using the date timeline or calendar.`
-                : "All columns have been removed from today's board. You can photograph or upload your tasklist to populate columns, add team members manually, or click any past date above to view previous taskboards."}
+                : "All columns have been removed from today's board. You can photograph or upload your tasklist to populate columns, or click any past date above to view previous taskboards."}
             </p>
             {departmentFilter !== 'all' && (
               <button
@@ -1033,15 +972,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 >
                   <Camera className="w-4 h-4" />
                   <span>Upload Tasklist Photo</span>
-                </button>
-                <button
-                  id="btn-empty-add-column"
-                  type="button"
-                  onClick={() => setIsAddingColumn(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-[#2E2BE6]" />
-                  <span>Add task column</span>
                 </button>
               </div>
             )}
