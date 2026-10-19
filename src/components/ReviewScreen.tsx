@@ -50,6 +50,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   const todayStr = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState<string>(initialDate || todayStr);
   const [registeredMembers, setRegisteredMembers] = useState<string[]>([]);
+  const [isRosterLoaded, setIsRosterLoaded] = useState(false);
 
   // Load registered users so the admin can pick from a quick dropdown or auto-complete
   useEffect(() => {
@@ -61,6 +62,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
             .filter((u) => u.active && !u.name.toLowerCase().includes('admin team'))
             .map((u) => u.name.trim());
           setRegisteredMembers(Array.from(new Set(names)));
+          setIsRosterLoaded(true);
         }
       } catch (e) {
         console.warn('Could not load user roster for review screen:', e);
@@ -319,6 +321,12 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
     await onConfirmPublish(payload, selectedDate);
   };
 
+  // Only people with an account can be published to the board
+  const registeredNameKeys = new Set(registeredMembers.map((m) => m.toLowerCase()));
+  const hasAccount = (name: string) => !isRosterLoaded || registeredNameKeys.has(name.trim().toLowerCase());
+  const namesWithoutAccount = employees.filter((emp) => !hasAccount(emp.name)).map((emp) => emp.name);
+  const canPublish = !isPublishing && employees.length > 0 && namesWithoutAccount.length === 0;
+
   const totalTasks = employees.reduce(
     (acc, emp) => acc + (Array.isArray(emp?.tasks) ? emp.tasks.length : 0),
     0
@@ -390,9 +398,10 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
             <button
               id="btn-publish-board-confirm"
               onClick={() => setShowConfirmModal(true)}
-              disabled={isPublishing || employees.length === 0}
+              disabled={!canPublish}
+              title={namesWithoutAccount.length > 0 ? 'Everyone on the board needs an account' : undefined}
               className={`px-4 py-2 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all ${
-                isPublishing || employees.length === 0
+                !canPublish
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
               }`}
@@ -431,6 +440,16 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               Once confirmed, these tasks will be <strong>added to the board for {selectedDate}</strong>. Tasks already on that day stay as they are, and any task already there is not added twice.
             </div>
           </div>
+
+          {namesWithoutAccount.length > 0 && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <span className="font-bold">No account: </span>
+                {namesWithoutAccount.join(', ')}. Only people with an account can be on the board. Click the pencil icon to pick a registered person, or remove the column, before publishing.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Optional Collapsible Source Photo Preview */}
@@ -601,6 +620,12 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                             >
                               <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
                               <span>Matched from "{emp.originalExtractedName}"</span>
+                            </span>
+                          )}
+                          {!hasAccount(emp.name) && (
+                            <span className="text-[10px] text-rose-700 flex items-center gap-0.5 mt-0.5 font-semibold">
+                              <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                              <span>No account, pick a registered person</span>
                             </span>
                           )}
                         </div>
