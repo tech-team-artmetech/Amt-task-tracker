@@ -428,7 +428,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               <span className="font-bold">Handwriting OCR verification: </span>
               Compare the extracted columns against your tasklist photo.
               Click the pencil icon next to any person's name to change or select from your registered employees.
-              Once confirmed, this board will <strong>replace the board for {selectedDate}</strong>.
+              Once confirmed, these tasks will be <strong>added to the board for {selectedDate}</strong>. Tasks already on that day stay as they are, and any task already there is not added twice.
             </div>
           </div>
         </div>
@@ -850,7 +850,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               Publish Board for {selectedDate}?
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Confirming this review will update tasks for <strong>{selectedDate}</strong> with these {employees.length} columns and {totalTasks} verified tasks. Any uncompleted tasks from prior days will automatically carry forward.
+              Confirming this review will add these {totalTasks} verified tasks for {employees.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept. Any uncompleted tasks from prior days will automatically carry forward.
             </p>
 
             <div className="flex items-center justify-end gap-3">
