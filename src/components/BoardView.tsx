@@ -888,7 +888,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 <Briefcase className="w-3 h-3 text-[#2E2BE6]" />
                 Department:
               </span>
-              {['all', 'Editors', 'Designers', 'Managers', 'Cinematographers'].map((dept) => {
+              {['all', ...(board?.departments ?? ['Editors', 'Designers', 'Managers', 'Cinematographers'])].map((dept) => {
                 const isSelected = departmentFilter.toLowerCase() === dept.toLowerCase();
                 const count =
                   dept === 'all'

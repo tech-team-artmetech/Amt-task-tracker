@@ -90,6 +90,7 @@ export interface BoardData {
   dailyStats?: DailyStats;
   totalTeamColumnsCount?: number;
   isManagerFiltered?: boolean;
+  departments?: string[];
 }
 
 export interface ManagerOption {
