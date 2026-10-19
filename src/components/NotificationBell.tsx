@@ -35,6 +35,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   onBoardUpdate,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const isMemberRole = !['admin', 'manager'].includes((user.role || '').toLowerCase());
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [toastNotification, setToastNotification] = useState<AppNotification | null>(null);
@@ -612,7 +613,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 </div>
                 <p className="text-xs font-semibold text-slate-300">No notifications yet</p>
                 <p className="text-[11px] text-slate-500 mt-1 max-w-[220px]">
-                  {user.role === 'employee'
+                  {isMemberRole
                     ? "You will be notified whenever new tasks are assigned to you."
                     : "You will be notified when employees finish their tasks."}
                 </p>
@@ -680,7 +681,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
           {/* Footer note */}
           <div className="px-4 py-2 border-t border-slate-800 bg-slate-950/40 text-[10px] text-slate-500 text-center">
-            {user.role === 'employee'
+            {isMemberRole
               ? 'Real-time assignment updates for your column'
               : 'Real-time task completion alerts for team supervisors'}
           </div>

@@ -716,7 +716,7 @@ export async function notifyAdminAndManagersTaskCompleted(params: {
     id: 'system',
     name: params.actorName,
     email: '',
-    role: (params.actorName.toLowerCase().includes('admin') ? 'admin' : 'employee') as any,
+    role: (params.actorName.toLowerCase().includes('admin') ? 'admin' : 'member') as any,
     active: true,
   };
   return notifyTaskCompleted({

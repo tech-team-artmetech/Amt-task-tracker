@@ -41,6 +41,11 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [activeTab, setActiveTab] = useState<'accounts' | 'roles'>('accounts');
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  // New accounts default to a department role: Editors if it exists, else the first department
+  const defaultRoleName =
+    roles.find((r) => r.name.toLowerCase() === 'editors')?.name ||
+    roles.find((r) => !['admin', 'manager'].includes(r.name.toLowerCase()))?.name ||
+    'Editors';
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,7 +135,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       setNewName('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('employee');
+      setNewRole(defaultRoleName);
       onToast(`Account created for ${res.user.name} (${res.user.role})`, 'success');
       onUserUpdated?.(res.user);
       onTeamChanged?.();
@@ -159,7 +164,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     setEditingUserId(null);
     setEditName('');
     setEditEmail('');
-    setEditRole('employee');
+    setEditRole(defaultRoleName);
     setEditPassword('');
   };
 
@@ -308,7 +313,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   };
 
   const handleDeleteRole = (role: AppRole) => {
-    if (role.isSystem || ['admin', 'manager', 'employee'].includes(role.name.toLowerCase())) {
+    if (role.isSystem || ['admin', 'manager'].includes(role.name.toLowerCase())) {
       onToast(`Cannot delete default system role "${role.name}".`, 'error');
       return;
     }
@@ -365,7 +370,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   // Fallback roles if list not loaded yet
   const availableRoleNames = roles.length > 0
     ? roles.map((r) => r.name)
-    : ['admin', 'manager', 'Editors', 'Designers', 'Cinematographers', 'employee'];
+    : ['admin', 'manager', 'Editors', 'Designers', 'Cinematographers'];
 
   if (!isOpen) return null;
 
@@ -567,7 +572,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
                 <div className="border border-white/10 rounded-xl overflow-hidden divide-y divide-white/5 bg-black/20">
                   {roles.map((r) => {
-                    const isSystemRole = r.isSystem || ['admin', 'manager', 'employee'].includes(r.name.toLowerCase());
+                    const isSystemRole = r.isSystem || ['admin', 'manager'].includes(r.name.toLowerCase());
                     return (
                       <div
                         key={r.id}
@@ -1162,7 +1167,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
               <div className="bg-black/40 rounded-xl p-3 border border-white/5 mb-4 text-xs text-slate-300">
                 Are you sure you want to delete role <strong className="text-white font-semibold">{roleToDelete.name}</strong>?
-                Any team members currently assigned this role will automatically revert to &quot;employee&quot;.
+                {(roleToDelete.userCount || 0) > 0
+                  ? `${roleToDelete.userCount} account${roleToDelete.userCount === 1 ? ' still has' : 's still have'} this role. Move them to another role first, or the delete will be refused.`
+                  : 'No accounts use this role.'}
               </div>
 
               <div className="flex items-center justify-end gap-2">

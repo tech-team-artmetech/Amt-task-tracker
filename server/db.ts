@@ -469,7 +469,6 @@ export async function initDatabase(): Promise<void> {
       { name: 'Editors', description: 'Video & Audio Editors', isSystem: 0 },
       { name: 'Designers', description: 'Graphic & UI Designers', isSystem: 0 },
       { name: 'Cinematographers', description: 'Camera & Studio Cinematographers', isSystem: 0 },
-      { name: 'employee', description: 'General Team Member (View personal column)', isSystem: 1 },
     ];
     for (const defRole of defaultRoles) {
       const exists = await db
@@ -486,6 +485,22 @@ export async function initDatabase(): Promise<void> {
           createdAt: new Date().toISOString(),
         });
       }
+    }
+
+    // The generic 'employee' role was retired in favour of department roles. Drop it when
+    // nobody holds it; otherwise make it an ordinary role so those people can be moved
+    // to a department and the role deleted from Team & Role Management.
+    const employeeHolders = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`LOWER(TRIM(${users.role})) = 'employee'`);
+    if (employeeHolders.length === 0) {
+      await db.delete(appRoles).where(sql`LOWER(TRIM(${appRoles.name})) = 'employee'`);
+    } else {
+      await db
+        .update(appRoles)
+        .set({ isSystem: 0 })
+        .where(sql`LOWER(TRIM(${appRoles.name})) = 'employee'`);
     }
   } catch (rolesErr) {
     console.warn('[Database] Seed roles warning:', rolesErr);
@@ -1424,17 +1439,22 @@ export async function deleteAppRole(roleId: string): Promise<void> {
     throw new Error('Role not found.');
   }
 
-  if (Boolean(existing[0].isSystem) || ['admin', 'manager', 'employee'].includes(existing[0].name.toLowerCase())) {
+  if (Boolean(existing[0].isSystem) || ['admin', 'manager'].includes(existing[0].name.toLowerCase())) {
     throw new Error(`Cannot delete built-in system role "${existing[0].name}".`);
   }
 
   const roleName = existing[0].name;
 
-  // Reassign any users currently assigned this role to 'employee'
-  await db
-    .update(users)
-    .set({ role: 'employee' })
+  // People are organised by department role, so there is no generic role to fall back to.
+  const assigned = await db
+    .select({ id: users.id })
+    .from(users)
     .where(sql`LOWER(${users.role}) = ${roleName.toLowerCase()}`);
+  if (assigned.length > 0) {
+    throw new Error(
+      `Move the ${assigned.length} account${assigned.length === 1 ? '' : 's'} with role "${roleName}" to another role before deleting it.`
+    );
+  }
 
   await db.delete(appRoles).where(eq(appRoles.id, roleId));
   saveDatabase(true);

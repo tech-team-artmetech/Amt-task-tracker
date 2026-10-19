@@ -119,7 +119,8 @@ export function requireRole(allowedRoles: Role[]) {
     const normalizedAllowed = allowedRoles.map((r) => (r || '').trim().toLowerCase());
 
     const isMemberRole = userRoleLower !== 'admin' && userRoleLower !== 'manager';
-    const allowsAnyMember = normalizedAllowed.includes('employee') || normalizedAllowed.some(r => ['editors', 'designers', 'cinematographers'].includes(r));
+    // 'member' stands for every department role (anyone who is not an admin or manager)
+    const allowsAnyMember = normalizedAllowed.includes('member') || normalizedAllowed.some(r => ['editors', 'designers', 'cinematographers'].includes(r));
 
     if (normalizedAllowed.includes(userRoleLower) || (isMemberRole && allowsAnyMember)) {
       next();
