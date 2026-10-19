@@ -2160,18 +2160,15 @@ export async function addTasksToBoard(
         });
       }
 
-      // 3. Add the new tasks after this person's existing ones, skipping any task already showing on that day
+      // 3. Add the new tasks after this person's existing ones. Only that day's own tasks count as repeats:
+      // tasks carried forward from earlier days are left as they are, and a listed task becomes a new entry for the day.
       const columnTasks = await tx
         .select()
         .from(boardTasks)
         .where(eq(boardTasks.columnId, columnId));
       const normalizeTaskText = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
-      const tasksShownOnDay = columnTasks.filter(
-        (ct: any) =>
-          (!ct.assignedDate || ct.assignedDate <= assignedDate) &&
-          (ct.completed === 0 || !ct.completedAt || ct.completedAt.substring(0, 10) >= assignedDate)
-      );
-      const shownTextKeys = new Set<string>(tasksShownOnDay.map((ct: any) => normalizeTaskText(ct.text || '')));
+      const tasksGivenOnDay = columnTasks.filter((ct: any) => ct.assignedDate === assignedDate);
+      const shownTextKeys = new Set<string>(tasksGivenOnDay.map((ct: any) => normalizeTaskText(ct.text || '')));
       let taskOrder = columnTasks.reduce((m: number, ct: any) => Math.max(m, ct.sortOrder || 0), 0) + 1;
       const addedTaskIds: string[] = [];
       for (const t of emp.tasks || []) {
