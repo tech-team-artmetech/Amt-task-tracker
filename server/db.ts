@@ -2063,23 +2063,13 @@ export async function addTasksToBoard(
   const assignedDate = (forDate && /^\d{4}-\d{2}-\d{2}$/.test(forDate)) ? forDate : getRelativeDateString(0);
 
   // Only people with an account can be on the board: names are matched to an account,
-  // people without one and no tasks are dropped, and people without one but with tasks stop the publish.
+  // and anyone without one is skipped so the admin can re-upload after creating their profile.
   const accountNames = await getRegisteredTeamMemberNames();
   const accountNameByKey = new Map(accountNames.map((n) => [n.toLowerCase(), n]));
-  const namesWithoutAccount: string[] = [];
   const employeesWithAccounts: typeof employees = [];
   for (const emp of employees) {
     const accountName = accountNameByKey.get((emp?.name || '').trim().toLowerCase());
-    if (accountName) {
-      employeesWithAccounts.push({ ...emp, name: accountName });
-    } else if (Array.isArray(emp?.tasks) && emp.tasks.length > 0) {
-      namesWithoutAccount.push((emp?.name || '').trim() || 'Unnamed person');
-    }
-  }
-  if (namesWithoutAccount.length > 0) {
-    throw new Error(
-      `${namesWithoutAccount.join(', ')} ${namesWithoutAccount.length > 1 ? "don't" : "doesn't"} have an account. Pick a registered person on the review screen before publishing.`
-    );
+    if (accountName) employeesWithAccounts.push({ ...emp, name: accountName });
   }
 
   await db.transaction(async (tx: any) => {
