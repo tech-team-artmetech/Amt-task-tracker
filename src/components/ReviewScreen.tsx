@@ -121,8 +121,6 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Editing names
-  const [editingEmpId, setEditingEmpId] = useState<string | null>(null);
-  const [editingEmpName, setEditingEmpName] = useState('');
 
   // Editing task text
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -137,14 +135,6 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   const [newTaskText, setNewTaskText] = useState('');
 
   // ================= ACTIONS =================
-  const handleRenamePerson = (empId: string) => {
-    if (!editingEmpName.trim()) return;
-    setEmployees((prev) =>
-      prev.map((emp) => (emp.id === empId ? { ...emp, name: editingEmpName.trim() } : emp))
-    );
-    setEditingEmpId(null);
-  };
-
   const handleAddPerson = () => {
     if (!newPersonName.trim()) return;
     setEmployees((prev) => [
@@ -356,7 +346,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                 </div>
               </div>
               <p className="text-xs text-slate-500">
-                Fix any handwriting misreads, rename people, or adjust task priority before publishing.
+                Fix any handwriting misreads or adjust task priority before publishing.
               </p>
             </div>
           </div>
@@ -436,7 +426,6 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
             <div className="leading-relaxed">
               <span className="font-bold">Handwriting OCR verification: </span>
               Compare the extracted columns against your tasklist photo.
-              Click the pencil icon next to any person's name to change or select from your registered employees.
               Once confirmed, these tasks will be <strong>added to the board for {selectedDate}</strong>. Tasks already on the board stay as they are. A task already given for that day is not added twice, while carried-over tasks stay separate.
             </div>
           </div>
@@ -446,7 +435,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div className="leading-relaxed">
                 <span className="font-bold">No account: </span>
-                {namesWithoutAccount.join(', ')}. Only people with an account can be on the board. Click the pencil icon to pick a registered person, or remove the column, before publishing.
+                {namesWithoutAccount.join(', ')}. Only people with an account can be on the board. Create their profile first
               </div>
             </div>
           )}
@@ -573,45 +562,9 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                     {/* Column Header (Name + Controls) */}
                   <div className="p-2.5 sm:p-3.5 border-b border-slate-200 bg-slate-50/70 rounded-t-xl flex flex-col gap-2">
                     <div className="flex items-center justify-between">
-                      {editingEmpId === emp.id ? (
-                        <div className="flex items-center gap-1 flex-1">
-                          <input
-                            type="text"
-                            list="registered-team-roster"
-                            value={editingEmpName}
-                            onChange={(e) => setEditingEmpName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleRenamePerson(emp.id)}
-                            autoFocus
-                            placeholder="Select or type name..."
-                            className="px-2 py-1 border border-indigo-400 rounded text-xs text-slate-900 w-full focus:outline-none bg-white"
-                          />
-                          <button
-                            onClick={() => handleRenamePerson(emp.id)}
-                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setEditingEmpId(null)}
-                            className="p-1 text-slate-400 hover:bg-slate-100 rounded"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
                         <div className="flex flex-col min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="font-bold text-sm text-slate-900 truncate">{emp.name}</span>
-                            <button
-                              onClick={() => {
-                                setEditingEmpId(emp.id);
-                                setEditingEmpName(emp.name);
-                              }}
-                              title="Rename person or pick registered team member"
-                              className="p-1 text-slate-400 hover:text-slate-700 rounded"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
                           </div>
                           {emp.originalExtractedName && emp.originalExtractedName.toLowerCase() !== emp.name.toLowerCase() && (
                             <span
@@ -625,11 +578,10 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                           {!hasAccount(emp.name) && (
                             <span className="text-[10px] text-rose-700 flex items-center gap-0.5 mt-0.5 font-semibold">
                               <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-                              <span>No account, pick a registered person</span>
+                              <span>No account</span>
                             </span>
                           )}
                         </div>
-                      )}
 
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700">
