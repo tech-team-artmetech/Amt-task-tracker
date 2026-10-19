@@ -1705,13 +1705,7 @@ export async function getBoard(selectedDate?: string, requestingUser?: User | nu
       });
     }
 
-    // The selected day's own tasks come first, then carry-forwards from the most recent day back.
-    // Within each day, tasks keep their sort order (upload order, later additions after earlier ones).
-    tasks.sort((a, b) => {
-      if (a.isGivenToday !== b.isGivenToday) return a.isGivenToday ? -1 : 1;
-      if (a.assignedDate !== b.assignedDate) return (a.assignedDate || '') < (b.assignedDate || '') ? 1 : -1;
-      return (a.order || 0) - (b.order || 0);
-    });
+    tasks.sort((a, b) => (a.order || 0) - (b.order || 0));
     tasks.forEach((t, idx) => {
       t.isP1 = idx === 0;
     });
@@ -1935,6 +1929,37 @@ export async function getBoard(selectedDate?: string, requestingUser?: User | nu
   };
 }
 
+// Places newly added tasks for a day directly below that day's existing tasks in the column,
+// or at the top when the day has none yet, so they sit above carry-forwards from earlier days.
+// Everything else keeps its current order, so manual moves made earlier are respected.
+async function placeNewTasksForDay(tx: any, columnId: string, day: string, newTaskIds: string[]): Promise<void> {
+  if (newTaskIds.length === 0) return;
+  const newIds = new Set(newTaskIds);
+  const columnTasks = await tx
+    .select()
+    .from(boardTasks)
+    .where(eq(boardTasks.columnId, columnId))
+    .orderBy(asc(boardTasks.sortOrder));
+
+  const isShownOnDay = (t: any) =>
+    (!t.assignedDate || t.assignedDate <= day) &&
+    (t.completed === 0 || !t.completedAt || t.completedAt.substring(0, 10) >= day);
+
+  const existing = columnTasks.filter((t: any) => isShownOnDay(t) && !newIds.has(t.id));
+  const added = newTaskIds.map((id) => columnTasks.find((t: any) => t.id === id)).filter(Boolean);
+  let insertAt = 0;
+  existing.forEach((t: any, i: number) => {
+    if (t.assignedDate === day) insertAt = i + 1;
+  });
+
+  const ordered = [...existing.slice(0, insertAt), ...added, ...existing.slice(insertAt)];
+  for (let i = 0; i < ordered.length; i++) {
+    if (ordered[i].sortOrder !== i + 1) {
+      await tx.update(boardTasks).set({ sortOrder: i + 1 }).where(eq(boardTasks.id, ordered[i].id));
+    }
+  }
+}
+
 export async function addTasksToBoard(
   employees: Array<{ name: string; tasks: string[] }>,
   publishedByUserId: string,
@@ -2074,6 +2099,7 @@ export async function addTasksToBoard(
       );
       const shownTextKeys = new Set<string>(tasksShownOnDay.map((ct: any) => normalizeTaskText(ct.text || '')));
       let taskOrder = columnTasks.reduce((m: number, ct: any) => Math.max(m, ct.sortOrder || 0), 0) + 1;
+      const addedTaskIds: string[] = [];
       for (const t of emp.tasks || []) {
         let isDone = false;
         let rawText = '';
@@ -2111,6 +2137,7 @@ export async function addTasksToBoard(
           totalQuantity: totalQty,
           completedQuantity: completedQty,
         });
+        addedTaskIds.push(taskId);
 
         notifyEmployeeTaskAssigned({
           employeeName: cleanName,
@@ -2119,6 +2146,8 @@ export async function addTasksToBoard(
           taskId,
         }).catch((err) => console.error('[Notification error]', err));
       }
+
+      await placeNewTasksForDay(tx, columnId, assignedDate, addedTaskIds);
     }
 
     // Reorder sortOrder: columns with tasks appear first on the left, empty columns go towards the right end
@@ -2324,6 +2353,7 @@ export async function adminEditBoard(
         totalQuantity: parsedQty.totalQuantity,
         completedQuantity: 0,
       });
+      await placeNewTasksForDay(tx, action.columnId, taskAssignedDate, [taskId]);
 
       const colRows = await tx
         .select({ employeeName: boardColumns.employeeName })
