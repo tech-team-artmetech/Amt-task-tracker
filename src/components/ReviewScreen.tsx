@@ -877,6 +877,9 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
               Confirming this review will add these {totalTasks} verified tasks for {employees.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept.
+              {namesWithoutAccount.length > 0 && (
+                <> <strong>{namesWithoutAccount.join(', ')}</strong> will be skipped because {namesWithoutAccount.length > 1 ? "they don't have accounts" : "they don't have an account"}.</>
+              )}
             </p>
 
             <div className="flex items-center justify-end gap-3">
