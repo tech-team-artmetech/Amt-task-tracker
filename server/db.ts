@@ -1105,21 +1105,8 @@ export async function getRegisteredTeamMemberNames(): Promise<string[]> {
     }
   }
 
-  // 2. Also collect existing board columns
-  const cols = await db.select({ name: boardColumns.employeeName }).from(boardColumns);
-  for (const c of cols) {
-    if (c.name && c.name.trim()) {
-      nameSet.add(c.name.trim());
-    }
-  }
-
-  // 3. Also manager assignments
-  const assigns = await db.select({ name: managerAssignments.employeeName }).from(managerAssignments);
-  for (const a of assigns) {
-    if (a.name && a.name.trim()) {
-      nameSet.add(a.name.trim());
-    }
-  }
+  // Only people with an account can appear on the board, so board columns and
+  // manager assignments without an account are not offered as matches.
 
   return Array.from(nameSet);
 }
@@ -1950,6 +1937,26 @@ export async function addTasksToBoard(
   await ensureDatabaseReady();
   const assignedDate = (forDate && /^\d{4}-\d{2}-\d{2}$/.test(forDate)) ? forDate : getRelativeDateString(0);
 
+  // Only people with an account can be on the board: names are matched to an account,
+  // people without one and no tasks are dropped, and people without one but with tasks stop the publish.
+  const accountNames = await getRegisteredTeamMemberNames();
+  const accountNameByKey = new Map(accountNames.map((n) => [n.toLowerCase(), n]));
+  const namesWithoutAccount: string[] = [];
+  const employeesWithAccounts: typeof employees = [];
+  for (const emp of employees) {
+    const accountName = accountNameByKey.get((emp?.name || '').trim().toLowerCase());
+    if (accountName) {
+      employeesWithAccounts.push({ ...emp, name: accountName });
+    } else if (Array.isArray(emp?.tasks) && emp.tasks.length > 0) {
+      namesWithoutAccount.push((emp?.name || '').trim() || 'Unnamed person');
+    }
+  }
+  if (namesWithoutAccount.length > 0) {
+    throw new Error(
+      `${namesWithoutAccount.join(', ')} ${namesWithoutAccount.length > 1 ? "don't" : "doesn't"} have an account. Pick a registered person on the review screen before publishing.`
+    );
+  }
+
   await db.transaction(async (tx: any) => {
     // Publishing adds to the day's board: tasks already on it (done, carried forward or edited) stay as they are.
     // If the day already had tasks, existing columns keep their order and new people are added at the end.
@@ -1981,7 +1988,7 @@ export async function addTasksToBoard(
     const existingColNames = allExistingCols.map((c: any) => c.employeeName);
 
     // Requirement 3: Columns with tasks appear first on the left, empty columns towards the right end
-    const sortedEmployees = [...employees].sort((a: any, b: any) => {
+    const sortedEmployees = [...employeesWithAccounts].sort((a: any, b: any) => {
       const aTasks = Array.isArray(a?.tasks) ? a.tasks.length : 0;
       const bTasks = Array.isArray(b?.tasks) ? b.tasks.length : 0;
       if (aTasks > 0 && bTasks === 0) return -1;
