@@ -827,7 +827,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               Publish Board for {selectedDate}?
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Confirming this review will add these {totalTasks} verified tasks for {employees.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept. Any uncompleted tasks from prior days will automatically carry forward.
+              Confirming this review will add these {totalTasks} verified tasks for {employees.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept.
             </p>
 
             <div className="flex items-center justify-end gap-3">
