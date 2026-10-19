@@ -328,7 +328,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   const namesWithoutAccount = employees.filter((emp) => !hasAccount(emp.name)).map((emp) => emp.name);
   const canPublish = !isPublishing && employeesWithAccount.length > 0;
 
-  const totalTasks = employeesWithAccount.reduce(
+  const totalTasks = employees.reduce(
     (acc, emp) => acc + (Array.isArray(emp?.tasks) ? emp.tasks.length : 0),
     0
   );
@@ -876,10 +876,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               Publish Board for {selectedDate}?
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Confirming this review will add these {totalTasks} verified tasks for {employeesWithAccount.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept. Any uncompleted tasks from prior days will automatically carry forward.
-              {namesWithoutAccount.length > 0 && (
-                <> Skipped because they have no account: <strong>{namesWithoutAccount.join(', ')}</strong>.</>
-              )}
+              Confirming this review will add these {totalTasks} verified tasks for {employees.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept. Any uncompleted tasks from prior days will automatically carry forward.
             </p>
 
             <div className="flex items-center justify-end gap-3">
