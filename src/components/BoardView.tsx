@@ -25,6 +25,7 @@ import {
   UserCheck,
   ChevronUp,
   ChevronDown,
+  ChevronsUp,
   FileSpreadsheet,
   Clock,
   Briefcase,
@@ -610,7 +611,14 @@ export const BoardView: React.FC<BoardViewProps> = ({
     setDragOverTaskId(null);
   };
 
-  const handleMoveTaskPriority = async (colId: string, taskId: string, direction: 'up' | 'down') => {
+  // Moves a task relative to the tasks currently shown in the column (a filter can hide some),
+  // so one tap always moves it past the neighbour you can see.
+  const handleMoveTaskPriority = async (
+    colId: string,
+    taskId: string,
+    direction: 'up' | 'down' | 'top',
+    visibleTaskIds: string[]
+  ) => {
     if (!canReorder) return;
     const updatedColumns: BoardColumn[] = columns.map((col) => ({
       ...col,
@@ -620,15 +628,20 @@ export const BoardView: React.FC<BoardViewProps> = ({
     const col = updatedColumns.find((c) => c.id === colId);
     if (!col) return;
 
+    const visibleIdx = visibleTaskIds.indexOf(taskId);
+    if (visibleIdx === -1) return;
+    const anchorId =
+      direction === 'top'
+        ? col.tasks[0]?.id
+        : visibleTaskIds[direction === 'up' ? visibleIdx - 1 : visibleIdx + 1];
+    if (!anchorId || anchorId === taskId) return;
+
     const idx = col.tasks.findIndex((t) => t.id === taskId);
     if (idx === -1) return;
-
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= col.tasks.length) return;
-
-    const temp = col.tasks[idx];
-    col.tasks[idx] = col.tasks[targetIdx];
-    col.tasks[targetIdx] = temp;
+    const [movedTask] = col.tasks.splice(idx, 1);
+    const anchorIdx = col.tasks.findIndex((t) => t.id === anchorId);
+    if (anchorIdx === -1) return;
+    col.tasks.splice(direction === 'down' ? anchorIdx + 1 : anchorIdx, 0, movedTask);
 
     updatedColumns.forEach((c) => {
       c.tasks.forEach((t, i) => {
@@ -1400,12 +1413,32 @@ export const BoardView: React.FC<BoardViewProps> = ({
                           <div className="flex items-center gap-1">
                             {canReorder && (
                               <>
-                                <div className="flex items-center gap-0.5 sm:hidden">
+                                <div
+                                  className={`items-center gap-0.5 ${
+                                    isTouchDevice ? 'flex' : 'flex sm:hidden sm:group-hover:flex sm:group-focus-within:flex'
+                                  }`}
+                                >
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleMoveTaskPriority(column.id, task.id, 'up');
+                                      handleMoveTaskPriority(column.id, task.id, 'top', displayedTasks.map((t) => t.id));
+                                    }}
+                                    disabled={idx === 0}
+                                    title="Move to top (P1)"
+                                    className={`p-1 rounded ${
+                                      idx === 0
+                                        ? 'text-slate-200 cursor-not-allowed'
+                                        : 'text-slate-500 hover:text-slate-900 active:bg-slate-200 cursor-pointer'
+                                    }`}
+                                  >
+                                    <ChevronsUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMoveTaskPriority(column.id, task.id, 'up', displayedTasks.map((t) => t.id));
                                     }}
                                     disabled={idx === 0}
                                     title="Move Task Up (Top is P1)"
@@ -1421,7 +1454,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleMoveTaskPriority(column.id, task.id, 'down');
+                                      handleMoveTaskPriority(column.id, task.id, 'down', displayedTasks.map((t) => t.id));
                                     }}
                                     disabled={idx === displayedTasks.length - 1}
                                     title="Move Task Down"
