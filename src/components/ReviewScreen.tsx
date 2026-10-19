@@ -294,7 +294,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   };
 
   const handleFinalPublish = async () => {
-    const payload = employees.map((emp) => ({
+    const payload = employeesWithAccount.map((emp) => ({
       name: emp.name,
       department: emp.department || 'General',
       tasks: (Array.isArray(emp.tasks) ? emp.tasks : []).map((t) => {
@@ -321,13 +321,14 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
     await onConfirmPublish(payload, selectedDate);
   };
 
-  // Only people with an account can be published to the board
+  // Only people with an account go on the board; anyone else is skipped when publishing
   const registeredNameKeys = new Set(registeredMembers.map((m) => m.toLowerCase()));
   const hasAccount = (name: string) => !isRosterLoaded || registeredNameKeys.has(name.trim().toLowerCase());
+  const employeesWithAccount = employees.filter((emp) => hasAccount(emp.name));
   const namesWithoutAccount = employees.filter((emp) => !hasAccount(emp.name)).map((emp) => emp.name);
-  const canPublish = !isPublishing && employees.length > 0 && namesWithoutAccount.length === 0;
+  const canPublish = !isPublishing && employeesWithAccount.length > 0;
 
-  const totalTasks = employees.reduce(
+  const totalTasks = employeesWithAccount.reduce(
     (acc, emp) => acc + (Array.isArray(emp?.tasks) ? emp.tasks.length : 0),
     0
   );
@@ -399,7 +400,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               id="btn-publish-board-confirm"
               onClick={() => setShowConfirmModal(true)}
               disabled={!canPublish}
-              title={namesWithoutAccount.length > 0 ? 'Everyone on the board needs an account' : undefined}
+              title={employees.length > 0 && employeesWithAccount.length === 0 ? 'Nobody here has an account yet' : undefined}
               className={`px-4 py-2 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all ${
                 !canPublish
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
@@ -445,8 +446,8 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div className="leading-relaxed">
-                <span className="font-bold">No account: </span>
-                {namesWithoutAccount.join(', ')}. Only people with an account can be on the board. Click the pencil icon to pick a registered person, or remove the column, before publishing.
+                <span className="font-bold">No account, will be skipped: </span>
+                {namesWithoutAccount.join(', ')}. Only people with an account go on the board, so {namesWithoutAccount.length > 1 ? 'these columns' : 'this column'} won't be published. To include {namesWithoutAccount.length > 1 ? 'them' : 'it'}, click the pencil icon and pick a registered person, or upload again once they have an account.
               </div>
             </div>
           )}
@@ -625,7 +626,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                           {!hasAccount(emp.name) && (
                             <span className="text-[10px] text-rose-700 flex items-center gap-0.5 mt-0.5 font-semibold">
                               <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-                              <span>No account, pick a registered person</span>
+                              <span>No account, will be skipped</span>
                             </span>
                           )}
                         </div>
@@ -875,7 +876,10 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               Publish Board for {selectedDate}?
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Confirming this review will add these {totalTasks} verified tasks for {employees.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept. Any uncompleted tasks from prior days will automatically carry forward.
+              Confirming this review will add these {totalTasks} verified tasks for {employeesWithAccount.length} people to <strong>{selectedDate}</strong>. Tasks already on the board for that day are kept. Any uncompleted tasks from prior days will automatically carry forward.
+              {namesWithoutAccount.length > 0 && (
+                <> Skipped because they have no account: <strong>{namesWithoutAccount.join(', ')}</strong>.</>
+              )}
             </p>
 
             <div className="flex items-center justify-end gap-3">
