@@ -517,6 +517,31 @@ export async function initDatabase(): Promise<void> {
         sql`LOWER(TRIM(COALESCE(${notifications.employeeName}, ''))) = ${bName} OR LOWER(${notifications.title}) LIKE ${'%' + bName + '%'} OR LOWER(${notifications.message}) LIKE ${'%' + bName + '%'}`
       );
     }
+    // Columns added by hand for people who never had an account (Mitesh) are removed with their tasks.
+    // If an account with that name is created later, its column is left alone.
+    const orphanNames = ['mitesh'];
+    for (const oName of orphanNames) {
+      const hasAccount = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(sql`LOWER(TRIM(${users.name})) = ${oName}`)
+        .limit(1);
+      if (hasAccount.length > 0) continue;
+      const orphanCols = await db
+        .select({ id: boardColumns.id })
+        .from(boardColumns)
+        .where(sql`LOWER(TRIM(${boardColumns.employeeName})) = ${oName}`);
+      for (const c of orphanCols) {
+        const tRows = await db.select({ id: boardTasks.id }).from(boardTasks).where(eq(boardTasks.columnId, c.id));
+        const tIds = tRows.map((t: any) => t.id);
+        if (tIds.length > 0) {
+          await db.delete(taskComments).where(inArray(taskComments.taskId, tIds));
+          await db.delete(boardTasks).where(inArray(boardTasks.id, tIds));
+        }
+        await db.delete(columnDateExclusions).where(eq(columnDateExclusions.columnId, c.id));
+        await db.delete(boardColumns).where(eq(boardColumns.id, c.id));
+      }
+    }
     // Wipe all historical notifications on database init so old notifications from earlier do not appear on login
     await db.delete(notifications);
     console.log('[Database] Cleared historical notifications and purged blocked team members.');
