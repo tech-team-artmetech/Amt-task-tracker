@@ -1967,8 +1967,31 @@ export async function getBoard(selectedDate?: string, requestingUser?: User | nu
     totalPending: dailyTotalPending,
   };
 
+  // Department filter options: every role that maps to a team department plus any
+  // department a column already uses, so newly created roles show up automatically.
+  const departmentNames = new Map<string, string>();
+  const addDepartment = (name: string | null | undefined) => {
+    const clean = (name || '').trim();
+    if (clean && !departmentNames.has(clean.toLowerCase())) departmentNames.set(clean.toLowerCase(), clean);
+  };
+  const roleRows = await db.select({ name: appRoles.name }).from(appRoles);
+  for (const r of roleRows) {
+    const lower = r.name.trim().toLowerCase();
+    if (lower === 'admin' || lower === 'employee') continue;
+    addDepartment(lower === 'manager' ? 'Managers' : r.name);
+  }
+  for (const col of allColumns) addDepartment(col.department);
+  const preferredOrder = ['editors', 'designers', 'managers', 'cinematographers'];
+  const departments = [...departmentNames.values()].sort((a, b) => {
+    const ai = preferredOrder.indexOf(a.toLowerCase());
+    const bi = preferredOrder.indexOf(b.toLowerCase());
+    if (ai !== -1 || bi !== -1) return (ai === -1 ? Infinity : ai) - (bi === -1 ? Infinity : bi);
+    return a.localeCompare(b);
+  });
+
   return {
     columns: displayedColumns,
+    departments,
     totalTeamColumnsCount,
     isManagerFiltered,
     updatedAt,
