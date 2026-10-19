@@ -1705,7 +1705,13 @@ export async function getBoard(selectedDate?: string, requestingUser?: User | nu
       });
     }
 
-    tasks.sort((a, b) => (a.order || 0) - (b.order || 0));
+    // The selected day's own tasks come first, then carry-forwards from the most recent day back.
+    // Within each day, tasks keep their sort order (upload order, later additions after earlier ones).
+    tasks.sort((a, b) => {
+      if (a.isGivenToday !== b.isGivenToday) return a.isGivenToday ? -1 : 1;
+      if (a.assignedDate !== b.assignedDate) return (a.assignedDate || '') < (b.assignedDate || '') ? 1 : -1;
+      return (a.order || 0) - (b.order || 0);
+    });
     tasks.forEach((t, idx) => {
       t.isP1 = idx === 0;
     });
