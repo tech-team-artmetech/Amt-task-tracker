@@ -100,6 +100,20 @@ The app keeps one copy per day for 14 days in `amt-data/backups/`. That is on th
 so also download `amt-data/whiteboard.sqlite` to your PC weekly (File Manager -> Download), or
 enable GoDaddy's account backups.
 
+### Clearing all tasks (keeps accounts)
+
+`npm run reset-tasks` removes every task, comment and notification, and keeps accounts, passwords,
+roles and team columns. It saves `amt-data/backups/before-reset-<time>.sqlite` first.
+
+1. Download `amt-data/whiteboard.sqlite` to your PC as an extra copy.
+2. In **Setup Node.js App**, press **Stop App** (otherwise the running app writes the old tasks back).
+3. Run the script: in the same screen choose `reset-tasks` under **Run JS script**, or in cPanel
+   **Terminal** enter the app's virtual environment (the command is shown at the top of the app
+   screen) and run `npm run reset-tasks`.
+4. Press **Start App**.
+
+To undo, stop the app, copy the `before-reset-...sqlite` file over `amt-data/whiteboard.sqlite`, and start it.
+
 ## 8. Security clean-up (important)
 
 - **Rotate every account password** in User Management. The old app exposed the seeded passwords
