@@ -182,6 +182,23 @@ export function getRelativeDateString(offsetDays: number, baseDate?: Date): stri
   return `${y}-${m}-${day}`;
 }
 
+// The office's "today", in its own time zone (India), not the host server's, which may be in the US.
+export function getOfficeTodayString(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+// Tasks can only be added for today or a later date, never for a day that has passed.
+export function assertNotPastDate(dateStr: string): void {
+  if (dateStr < getOfficeTodayString()) {
+    throw new Error("Tasks can't be added to a past date. Pick today or a later date.");
+  }
+}
+
 export function getDayLabel(dateStr: string): { label: string; dayOfWeek: string } {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
@@ -2096,7 +2113,8 @@ export async function addTasksToBoard(
   forDate?: string
 ): Promise<BoardData> {
   await ensureDatabaseReady();
-  const assignedDate = (forDate && /^\d{4}-\d{2}-\d{2}$/.test(forDate)) ? forDate : getRelativeDateString(0);
+  const assignedDate = (forDate && /^\d{4}-\d{2}-\d{2}$/.test(forDate)) ? forDate : getOfficeTodayString();
+  assertNotPastDate(assignedDate);
 
   // Only people with an account can be on the board: names are matched to an account,
   // and anyone without one is skipped so the admin can re-upload after creating their profile.
@@ -2449,7 +2467,8 @@ export async function adminEditBoard(
         }
       }
 
-      const requestedDate = action.assignedDate || targetDate || getRelativeDateString(0);
+      const requestedDate = action.assignedDate || targetDate || getOfficeTodayString();
+      assertNotPastDate(requestedDate);
 
       const maxOrderRes = await tx
         .select({ maxOrder: sql<number>`coalesce(max(${boardTasks.sortOrder}), 0)` })

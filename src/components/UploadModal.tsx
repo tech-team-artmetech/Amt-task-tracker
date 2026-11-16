@@ -44,8 +44,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onExtractionSuccess,
   onSessionExpired,
 }) => {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const [targetDate, setTargetDate] = useState<string>(defaultDate || todayStr);
+  // Local date (YYYY-MM-DD). Tasks can only be added for today or a later date.
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const notPast = (d?: string) => (d && d >= todayStr ? d : todayStr);
+  const [targetDate, setTargetDate] = useState<string>(notPast(defaultDate));
   const [activeTab, setActiveTab] = useState<'upload' | 'camera' | 'paste'>('upload');
   const [pastedText, setPastedText] = useState('');
   const isPasteTab = activeTab === 'paste';
@@ -56,7 +58,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   // Sync defaultDate if provided
   useEffect(() => {
     if (defaultDate && /^\d{4}-\d{2}-\d{2}$/.test(defaultDate)) {
-      setTargetDate(defaultDate);
+      setTargetDate(notPast(defaultDate));
     }
   }, [defaultDate]);
 
@@ -304,7 +306,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   What date is this tasklist for?
                 </label>
                 <p className="text-[11px] text-slate-500">
-                  Select the day this tasklist applies to so it does not default to today.
+                  Pick today or a later day. Tasks can't be added to past dates.
                 </p>
               </div>
             </div>
@@ -314,16 +316,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 id="upload-tasklist-date"
                 type="date"
                 value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
+                min={todayStr}
+                onChange={(e) => setTargetDate(notPast(e.target.value))}
                 className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2E2BE6] focus:border-transparent cursor-pointer shadow-2xs"
               />
               {targetDate === todayStr ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
                   Today
-                </span>
-              ) : targetDate < todayStr ? (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                  Past Day
                 </span>
               ) : (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">

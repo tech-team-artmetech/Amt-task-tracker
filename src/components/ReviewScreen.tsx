@@ -47,8 +47,11 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   onCancel,
   isPublishing,
 }) => {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate || todayStr);
+  // Local date (YYYY-MM-DD). Tasks can only be added for today or a later date.
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const [selectedDate, setSelectedDate] = useState<string>(
+    initialDate && initialDate >= todayStr ? initialDate : todayStr
+  );
   const [registeredMembers, setRegisteredMembers] = useState<string[]>([]);
   const [isRosterLoaded, setIsRosterLoaded] = useState(false);
 
@@ -316,7 +319,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   const hasAccount = (name: string) => !isRosterLoaded || registeredNameKeys.has(name.trim().toLowerCase());
   const namesWithoutAccount = employees.filter((emp) => !hasAccount(emp.name)).map((emp) => emp.name);
   // People without an account are skipped when publishing, so only those with one count
-  const canPublish = !isPublishing && employees.length > namesWithoutAccount.length;
+  const canPublish = !isPublishing && selectedDate >= todayStr && employees.length > namesWithoutAccount.length;
 
   const totalTasks = employees.reduce(
     (acc, emp) => acc + (Array.isArray(emp?.tasks) ? emp.tasks.length : 0),
@@ -362,7 +365,8 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                 id="review-tasklist-date"
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                min={todayStr}
+                onChange={(e) => setSelectedDate(e.target.value && e.target.value >= todayStr ? e.target.value : todayStr)}
                 className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
               />
             </div>
