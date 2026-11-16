@@ -17,7 +17,6 @@ import {
   Plus,
   ShieldCheck,
   Sparkles,
-  RotateCcw,
 } from 'lucide-react';
 import { api } from '../api';
 import { User, Role, AppRole } from '../types';
@@ -39,9 +38,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   onUserUpdated,
   onTeamChanged,
 }) => {
-  const [activeTab, setActiveTab] = useState<'accounts' | 'roles' | 'reset'>('accounts');
-  const [resetConfirmText, setResetConfirmText] = useState('');
-  const [isResetting, setIsResetting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'accounts' | 'roles'>('accounts');
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AppRole[]>([]);
   // New accounts default to a department role: Editors if it exists, else the first department
@@ -114,25 +111,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       fetchData();
     }
   }, [isOpen]);
-
-  const handleResetBoard = async () => {
-    if (resetConfirmText.trim() !== 'RESET') return;
-    setIsResetting(true);
-    setError(null);
-    try {
-      const res = await api.resetBoard();
-      setResetConfirmText('');
-      onToast(
-        `Board reset: ${res.tasks} tasks, ${res.comments} comments and ${res.notifications} notifications removed. Backup saved as backups/${res.backupFile}`,
-        'success'
-      );
-      onTeamChanged?.();
-    } catch (err: any) {
-      setError(err.message || 'Reset failed. Nothing was deleted.');
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -421,7 +399,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="px-4 pt-3 pb-1 border-b border-white/10 flex flex-wrap items-center gap-2 bg-[#0d1024] shrink-0">
+        <div className="px-4 pt-3 pb-1 border-b border-white/10 flex items-center gap-2 bg-[#0d1024] shrink-0">
           <button
             type="button"
             id="tab-accounts"
@@ -454,22 +432,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
             <Tag className="w-3.5 h-3.5" />
             <span>Roles & Departments ({roles.length})</span>
           </button>
-          <button
-            type="button"
-            id="tab-reset"
-            onClick={() => {
-              setActiveTab('reset');
-              setError(null);
-            }}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'reset'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset board</span>
-          </button>
 
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -501,47 +463,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
         {/* Content Body */}
         <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-5">
-          {activeTab === 'reset' ? (
-            /* ================= RESET BOARD TAB ================= */
-            <div className="bg-rose-950/30 border border-rose-500/30 rounded-xl p-4 space-y-3 text-xs text-slate-300">
-              <div className="font-semibold text-sm text-white flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 text-rose-400" />
-                <span>Start the board fresh</span>
-              </div>
-              <p>
-                This removes <strong className="text-white">every task on every date</strong>, with all comments and
-                notifications. The monthly report will be empty too.
-              </p>
-              <p>
-                Kept: all accounts and passwords, roles and departments, team columns and manager assignments.
-              </p>
-              <p>
-                A full copy of the database is saved first in the <code className="text-slate-200">backups</code> folder
-                next to the database, so the old board can be restored from cPanel if needed.
-              </p>
-              <label className="block pt-1">
-                <span className="block mb-1 text-slate-400">Type RESET to confirm</span>
-                <input
-                  id="input-reset-confirm"
-                  type="text"
-                  value={resetConfirmText}
-                  onChange={(e) => setResetConfirmText(e.target.value)}
-                  autoComplete="off"
-                  className="w-full sm:w-56 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-rose-500"
-                  placeholder="RESET"
-                />
-              </label>
-              <button
-                id="btn-reset-board"
-                type="button"
-                disabled={resetConfirmText.trim() !== 'RESET' || isResetting}
-                onClick={handleResetBoard}
-                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              >
-                {isResetting ? 'Resetting...' : 'Back up and reset board'}
-              </button>
-            </div>
-          ) : activeTab === 'roles' ? (
+          {activeTab === 'roles' ? (
             /* ================= ROLE MANAGEMENT TAB ================= */
             <div className="space-y-4">
               {/* Create New Role Card / Form */}
