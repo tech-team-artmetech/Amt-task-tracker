@@ -259,7 +259,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
 
-  const todayString = new Date().toISOString().slice(0, 10);
+  const todayString = new Date().toLocaleDateString('en-CA');
   const isPastDate = Boolean(selectedDate && selectedDate < todayString);
 
   // If viewing a past date, hide and reset the Today filter
@@ -1857,7 +1857,8 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 })()}
 
                 {/* Add Task Form / Button at Bottom of Column (Admin, Manager, or Employee on their own column) */}
-                {(isAdmin || isManager || isMyColumn) && (
+                {/* Tasks can only be added for today or a later date */}
+                {(isAdmin || isManager || isMyColumn) && !isPastDate && (
                   addingTaskColId === column.id ? (
                     <div className="mt-2 pt-2 border-t border-slate-200/60">
                       <div className="flex flex-col gap-1.5 bg-white p-2 rounded-lg border border-indigo-200">
