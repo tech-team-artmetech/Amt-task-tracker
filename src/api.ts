@@ -321,6 +321,13 @@ export const api = {
     });
   },
 
+  async resetBoard(): Promise<{ success: boolean; backupFile: string; tasks: number; comments: number; notifications: number }> {
+    return request(`/api/admin/reset-board`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm: 'RESET' }),
+    });
+  },
+
   // Role Management (Admin Only)
   async getRoles(): Promise<{ roles: import('./types').AppRole[] }> {
     return request<{ roles: import('./types').AppRole[] }>('/api/admin/roles');

@@ -49,6 +49,19 @@ function rotateDailyBackup(): void {
   }
 }
 
+// Writes a named copy of the current database to DATA_DIR/backups before a destructive action.
+// The name does not start with "whiteboard-", so the 14-day rotation never prunes it.
+// Throws if the copy can't be written, so callers can refuse to go ahead.
+export function backupDatabaseNow(label: string): string {
+  if (!global._sqliteDbInstance) throw new Error('Database not initialized.');
+  const backupDir = path.join(dataDir, 'backups');
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+  const stamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+  const fileName = `${label}-${stamp}.sqlite`;
+  fs.writeFileSync(path.join(backupDir, fileName), Buffer.from(global._sqliteDbInstance.export()));
+  return fileName;
+}
+
 // `immediate` is kept for call-site compatibility: every save is written to disk synchronously.
 export function saveDatabase(_immediate = false): void {
   try {

@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { eq, sql, desc, asc, and, or, inArray } from 'drizzle-orm';
-import { db, ensureDbReady, saveDatabase } from '../src/db/index.ts';
+import { db, ensureDbReady, saveDatabase, backupDatabaseNow } from '../src/db/index.ts';
 import {
   users,
   boardMeta,
@@ -1521,6 +1521,42 @@ export async function deleteUserAccount(userId: string): Promise<void> {
       .onConflictDoNothing();
   }
   saveDatabase(true);
+}
+
+export interface ResetBoardResult {
+  backupFile: string;
+  tasks: number;
+  comments: number;
+  notifications: number;
+}
+
+// Empties the board for a fresh start: every task, comment and notification is removed.
+// Accounts, roles, columns (team members and their departments), manager assignments and
+// push subscriptions are kept. A full copy of the database is saved to DATA_DIR/backups first;
+// if that copy can't be written, nothing is deleted.
+export async function resetBoardTasks(): Promise<ResetBoardResult> {
+  await ensureDatabaseReady();
+  const count = async (table: any) =>
+    Number((await db.select({ count: sql<number>`count(*)` }).from(table))[0]?.count || 0);
+  const result = {
+    tasks: await count(boardTasks),
+    comments: await count(taskComments),
+    notifications: await count(notifications),
+  };
+
+  const backupFile = backupDatabaseNow('before-reset');
+
+  await db.transaction(async (tx: any) => {
+    await tx.delete(taskComments);
+    await tx.delete(boardTasks);
+    await tx.delete(notifications);
+    await tx.delete(boardMeta);
+  });
+  saveDatabase(true);
+  console.log(
+    `[Database] Board reset: removed ${result.tasks} tasks, ${result.comments} comments, ${result.notifications} notifications. Backup: backups/${backupFile}`
+  );
+  return { backupFile, ...result };
 }
 
 export async function seed15DaysMockData(force: boolean = false): Promise<void> {

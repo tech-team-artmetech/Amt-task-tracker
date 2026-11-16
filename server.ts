@@ -37,6 +37,7 @@ import {
   getAllRoles,
   createAppRole,
   deleteAppRole,
+  resetBoardTasks,
 } from './server/db.ts';
 import { flushDatabaseSync } from './src/db/index.ts';
 import {
@@ -269,6 +270,28 @@ async function startServer() {
       } catch (err: any) {
         console.error('[Delete User Error]', err);
         res.status(400).json({ error: err.message || 'Failed to delete user.' });
+      }
+    }
+  );
+
+  // POST /api/admin/reset-board: Back up, then remove every task, comment and notification (Admin only).
+  // Accounts, roles and team columns are kept. The body must be { confirm: 'RESET' }.
+  app.post(
+    '/api/admin/reset-board',
+    authMiddleware,
+    requireRole(['admin']),
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        if (req.body?.confirm !== 'RESET') {
+          res.status(400).json({ error: 'Type RESET to confirm.' });
+          return;
+        }
+        const result = await resetBoardTasks();
+        console.log(`[Reset Board] Requested by ${req.user?.email}`);
+        res.json({ success: true, ...result });
+      } catch (err: any) {
+        console.error('[Reset Board Error]', err);
+        res.status(500).json({ error: 'Reset failed. Nothing was deleted.' });
       }
     }
   );
