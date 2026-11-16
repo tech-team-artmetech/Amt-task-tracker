@@ -34,6 +34,7 @@ Make a zip containing exactly these (do **not** include `node_modules`, `data`, 
 - `public/`
 - `package.json`
 - `package-lock.json`
+- `tools/reset-tasks.mjs` (only needed to clear all tasks, see step 7)
 
 ## 2. Export the current live data (do this at cut-over time, see step 6)
 
