@@ -1689,7 +1689,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                           const canComment = Boolean(onAddComment);
 
                           return (
-                            <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                            <div className="mt-2.5 pt-2 border-t border-slate-100">
                               <div className="flex items-center justify-between">
                                 <button
                                   id={`btn-toggle-comments-${task.id}`}
@@ -1731,7 +1731,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                               {/* Expanded Comments Thread */}
                               {isCommentsOpen && (
                                 <div
-                                  className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-800 flex flex-col gap-2"
+                                  className="mt-2.5 pt-2 border-t border-slate-200/80 flex flex-col gap-2"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   {/* Comments list */}
@@ -1744,7 +1744,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                         >
                                           <div className="flex items-center justify-between mb-1 gap-1">
                                             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                              <span className="font-semibold text-slate-900 dark:text-slate-100 text-[11px] truncate">
+                                              <span className="font-semibold text-slate-900 text-[11px] truncate">
                                                 {c.userName}
                                               </span>
                                               <span
@@ -1774,7 +1774,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                               </button>
                                             )}
                                           </div>
-                                          <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-slate-800 dark:text-slate-200">
+                                          <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-slate-800">
                                             {c.content}
                                           </p>
                                         </div>
